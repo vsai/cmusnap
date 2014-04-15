@@ -31,7 +31,6 @@ outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 19, 'cameraError' : 19, 'generalError' : 19}
 inputPins = {'takePhoto' : 8, 'takeVideo' : 10, 'takeLivestream' : 12}
 
-root_dir = "../img/"
 ##End configurations
 ########
 
@@ -90,6 +89,7 @@ def setupPins():
         exit(1)
 
 def generate_filename(extension):
+    root_dir = "../img/"
     base_filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
     filename = base_filename + "." + extension
     return (os.path.join(root_dir, filename), base_filename+"."+extension)
@@ -137,13 +137,10 @@ def setupTriggers():
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=10)
     pass
 
-def setup_folders():
-    if not os.path.exists(root_dir):
-        os.mkdir(root_dir)
+
 
 def main():
     print "STARTING"
-    setup_folders()
     setupPins()
     testWifi()
     setupTriggers()
