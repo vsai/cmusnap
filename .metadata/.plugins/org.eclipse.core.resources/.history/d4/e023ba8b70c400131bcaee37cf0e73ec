@@ -1,0 +1,31 @@
+package server;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class ReadHandler extends Thread {
+	
+	InputStream in;
+	
+	public ReadHandler(InputStream in, ConcurrentHashMap<Socket, WriteHandler> writes){
+		
+	}
+	
+	public void run() {
+		int messageNum;
+		
+		while(true){
+			
+			try {
+				messageNum = in.read();
+				System.out.printf("Received %d from socket\n", messageNum);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+
+}

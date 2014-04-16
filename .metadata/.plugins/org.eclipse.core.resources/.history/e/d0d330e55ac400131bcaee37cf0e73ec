@@ -1,0 +1,33 @@
+package server;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class MainServer {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		
+		ServerSocket ss;
+		Socket s;
+		ObjectInputStream in;
+		ObjectOutputStream out;
+		
+		int portnum = 5000;
+		
+		try {
+			ss = new ServerSocket(portnum);
+			while (true) {
+				s = ss.accept();
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+}
