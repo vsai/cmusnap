@@ -5,7 +5,7 @@ import sys
 import time
 import datetime
 import urllib2
-
+import socket
 import RPi.GPIO as GPIO
 import picamera
 
@@ -45,6 +45,13 @@ camera = picamera.PiCamera()
 ##End Pi Setup
 ########
 
+def sendIpAddr():
+    HOST = 'unix4.andrew.cmu.edu'
+    PORT = 5000
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((HOST, PORT))
+    s.close()
+
 def testWifi():
     GPIO.output(outputPins.get('wifiError'), True)
     time.sleep(1)
@@ -59,6 +66,7 @@ def testWifi():
         else:
             print "Connected"
             GPIO.output(outputPins.get('wifiError'), False)
+            sendIpAddr()
             return
 
 def setupPins():
@@ -90,31 +98,24 @@ def setupPins():
         exit(1)
 
 def generate_filename(extension):
-    base_filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
+    base_filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M-%S')
     filename = base_filename + "." + extension
-    return (os.path.join(root_dir, filename), base_filename+"."+extension)
+    return (os.path.join(root_dir, filename), filename)
 
 def upload_file_aws(filename, keyname):
-    # def percent_cb(complete, total):
-    #     print complete, total 
-    #     sys.stdout.write('.')
-    #     sys.stdout.flush()
-
     conn = S3Connection(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     bucket = conn.create_bucket(bucket_name)
     #bucks = conn.get_all_buckets()
     k = Key(bucket)
     k.key = keyname
-    k.set_contents_from_filename(filename)
-    #k.set_contents_from_filename(filename, cb=percent_cb, num_cb=10)
-
+    k.set_contents_from_filename(filename)    
 
 def take_photo(channel):
     print "in take_photo()"
     (filename, keyname) = generate_filename("jpg")
     GPIO.output(outputPins.get('takePhoto'), True)
     result = camera.capture(filename)
-    # time.sleep(1)
+    time.sleep(1)
     upload_file_aws(filename, keyname)
     GPIO.output(outputPins.get('takePhoto'), False)
 
@@ -123,18 +124,17 @@ def take_video(channel):
     if GPIO.input(channel):
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
+        #(filename, heyname) = generate_filename("h264")
+        #camera.start_recording(filename)
     else:
         print "in take_video() - falling edge"
         GPIO.output(outputPins.get('takeVideo'), False)
+        #camera.stop_recording()
 
 def setupTriggers():
     #bouncetime = ignore further edges for certain time period (specified in ms)
-    
     GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=100)
-    
-    #bouncetime is set to 0 for video so that it will ALWAYS detect falling edge, 
-    #and so never continue recording while disconnected
-    GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=10)
+    GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
     pass
 
 def setup_folders():
@@ -158,3 +158,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

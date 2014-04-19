@@ -11,6 +11,7 @@ AWS_SECRET_ACCESS_KEY = "fPMlGslaDilet6dqbxhcbKdNhiAVfCj60TUzEEjd"
 bucket_name = AWS_ACCESS_KEY_ID.lower() + "-vhd-549-bucket"
 
 
+
 filename = sys.argv[1]
 print "uploading filename: %s, to bucket: %s"%(filename, bucket_name)
 
