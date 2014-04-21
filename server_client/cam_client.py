@@ -1,11 +1,22 @@
+""" This is the code for the client RasPi that outputs to a camera when it receives a signal. """
+
 import socket, thread
 
 def read_stdin(s):
     while (True):
         var = raw_input()
         if (var == 'Photo' or var == 'Video'):
-            s.sendall(var)
+            s.sendall(var) 
         return
+
+def photo_handler():
+    """ Function called when Pi receives a photo signal. CHANGE THIS """
+    print "Take a photo"
+
+def video_handler():
+    """ Function called when Pi receives a video signal. CHANGE THIS """
+    print "Take a video"
+
 
 HOST = 'unix4.andrew.cmu.edu'   # The remote host
 PORT = 5000                     # The same port as used by the server
@@ -18,7 +29,7 @@ while (True):
     #s.sendall('Hello, world')
     data = s.recv(1024)
     if (data == 'Photo'):
-        print "Take a photo"
+        photo_handler()
     elif (data == 'Video'):
-        print "Take a video"
+        video_handler()
 s.close()
