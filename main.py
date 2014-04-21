@@ -8,6 +8,7 @@ import urllib2
 import socket
 import RPi.GPIO as GPIO
 import picamera
+import thread
 
 import boto
 from boto.s3.connection import S3Connection, Location
@@ -29,7 +30,7 @@ from configs import *
 
 outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 19, 'cameraError' : 19, 'generalError' : 19}
-inputPins = {'takePhoto' : 8, 'takeVideo' : 10, 'takeLivestream' : 12}
+inputPins = {'takePhoto' : 8, 'takeVideo' : 10, 'takeLivestream' : 12, 'takeGroupPhoto' : 16}
 
 root_dir = "../img/"
 ##End configurations
@@ -44,13 +45,21 @@ camera = picamera.PiCamera()
 
 ##End Pi Setup
 ########
+def read_socket(s):
+    while True:
+        data = s.recv(1024)
+        if (data == '0'):
+            take_photo(99)
+        elif (data == '1'):
+            take_video(99)
 
 def sendIpAddr():
     HOST = 'unix4.andrew.cmu.edu'
     PORT = 5000
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST, PORT))
-    s.close()
+    thread.start_new_thread(read_socket, (s,)) 
+    return s
 
 def testWifi():
     GPIO.output(outputPins.get('wifiError'), True)
@@ -66,7 +75,6 @@ def testWifi():
         else:
             print "Connected"
             GPIO.output(outputPins.get('wifiError'), False)
-            sendIpAddr()
             return
 
 def setupPins():
@@ -111,6 +119,8 @@ def upload_file_aws(filename, keyname):
     k.set_contents_from_filename(filename)    
 
 def take_photo(channel):
+    if (channel == 99):
+        print "thanks to distributed server"
     print "in take_photo()"
     (filename, keyname) = generate_filename("jpg")
     GPIO.output(outputPins.get('takePhoto'), True)
@@ -121,6 +131,8 @@ def take_photo(channel):
 
 
 def take_video(channel):
+    if (channel == 99):
+        print "thanks to distributed server"
     if GPIO.input(channel):
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
@@ -131,10 +143,16 @@ def take_video(channel):
         GPIO.output(outputPins.get('takeVideo'), False)
         #camera.stop_recording()
 
-def setupTriggers():
+
+def setupTriggers(s):
     #bouncetime = ignore further edges for certain time period (specified in ms)
+    def take_group_photo(channel):
+        print "in take_group_photo()"
+        s.sendall('0')
+
     GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=100)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
+    GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=100)
     pass
 
 def setup_folders():
@@ -146,13 +164,15 @@ def main():
     setup_folders()
     setupPins()
     testWifi()
-    setupTriggers()
+    s = sendIpAddr()
+    setupTriggers(s)
 
     while True:
         try:
             pass
         except:
             print "ERROR"
+            s.close()
             GPIO.cleanup()
             exit(1)
 
