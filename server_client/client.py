@@ -4,7 +4,7 @@ import socket, thread
 
 def read_socket(s):
     while (True):
-    data = s.recv(1024)
+        data = s.recv(1024)
         if (data == '0'):
             photo_handler()
         elif (data == '1'):
@@ -30,7 +30,5 @@ while (True):
     var = raw_input()
     if (var == '0' or var == '1'):
         s.sendall(var) 
-    return
-
 
 s.close()
