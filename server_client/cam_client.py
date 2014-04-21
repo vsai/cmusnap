@@ -5,7 +5,7 @@ import socket, thread
 def read_stdin(s):
     while (True):
         var = raw_input()
-        if (var == 'Photo' or var == 'Video'):
+        if (var == '0' or var == '1'):
             s.sendall(var) 
         return
 
@@ -28,8 +28,8 @@ thread.start_new_thread(read_stdin, (s,))
 while (True):
     #s.sendall('Hello, world')
     data = s.recv(1024)
-    if (data == 'Photo'):
+    if (data == '0'):
         photo_handler()
-    elif (data == 'Video'):
+    elif (data == '1'):
         video_handler()
 s.close()

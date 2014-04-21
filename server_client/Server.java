@@ -1,10 +1,6 @@
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -19,14 +15,13 @@ import java.util.concurrent.Executors;
 public class Server implements Runnable {   
     private final ConcurrentHashMap<Socket, WriterThread> writers = new ConcurrentHashMap<Socket, WriterThread>();
     private final ConcurrentHashMap<Socket, ReaderThread> readers = new ConcurrentHashMap<Socket, ReaderThread>();
-    public static final String[] COMMAND_VALUES = new String[] { "Photo", "Video" };
-    public static final Set<String> commands = new HashSet<String>(Arrays.asList(COMMAND_VALUES));    
     private final int port = 5000;
     
     public static void main(String[] args) {
         Server s = new Server();
         s.run();
     }
+    
     
     @Override
     public void run() {
@@ -74,8 +69,7 @@ public class Server implements Runnable {
             private final ConcurrentHashMap<Socket, WriterThread> writers;
             private final ConcurrentHashMap<Socket, ReaderThread> readers;
 
-
-            public WriterThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers,
+            public WriterThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers, 
                     ConcurrentHashMap<Socket, ReaderThread> readers) {
                 this.socket = s;
                 this.writers = writers;
@@ -84,24 +78,27 @@ public class Server implements Runnable {
 
             @Override
             public void run() {
-                String command;
-                BufferedWriter out;
-                BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+                int command;
+                OutputStream out;
                 while (true) {
                     try {
-                        //Read from stdin: CHANGE TO GUI LATER
-                        command = in.readLine();
-                        if (!commands.contains(command)) { //invalid input
-                            System.err.println("Invalid command.");
+                        //Read from stdin
+                        command = System.in.read();
+                        if (command == -1) {
+                            System.err.println("Socket broken, terminating connection.");
+                            throw new SocketException();
+                        }
+                        else if (!((command == '0') || (command == '1'))) {
+                            System.err.println("Invalid command " + command);
                             continue;
                         }
+                        
                         // Write out to all output streams
                         for (Socket w : this.writers.keySet()) {
-                            out = new BufferedWriter(new OutputStreamWriter(w.getOutputStream()));
+                            out = w.getOutputStream();
                             out.write(command); 
                         }
                     } catch (SocketException socketE) {
-                        System.err.println("Socket connection broke.");
                         writers.remove(this.socket);
                         readers.remove(this.socket);
                         return;
@@ -117,34 +114,39 @@ public class Server implements Runnable {
             private final ConcurrentHashMap<Socket, WriterThread> writers;
             private final ConcurrentHashMap<Socket, ReaderThread> readers;
 
-            public ReaderThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers,
+            public ReaderThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers, 
                     ConcurrentHashMap<Socket, ReaderThread> readers) {
                 this.socket = s;
                 this.writers = writers;
                 this.readers = readers;
+
             }
 
             @Override
             public void run() {
-                BufferedReader in;
-                BufferedWriter out;
-                String command;
+                InputStream in;
+                OutputStream out;
+                int command;
                 while (true) {
                     try {
-                        in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-                        command = in.readLine(); // get input signal from raspi
-                        if (!commands.contains(command)) { //invalid input
-                            System.err.println("Invalid command.");
+                        in = this.socket.getInputStream();
+                        command = in.read(); // get input signal from raspi
+
+                        if (command == -1) {
+                            System.err.println("Socket broken, terminating connection.");
+                            throw new SocketException();
+                        }
+                        else if (!((command == '0') || (command == '1'))) {
+                            System.err.println("Invalid command " + command);
                             continue;
                         }
                         
                         //Write out to all sockets
                         for (Socket w : this.writers.keySet()) {
-                            out = new BufferedWriter(new OutputStreamWriter(w.getOutputStream()));
+                            out = w.getOutputStream();
                             out.write(command); 
                         }
                     } catch (SocketException socketE) {
-                        System.err.println("Socket connection broke.");
                         writers.remove(this.socket);
                         readers.remove(this.socket);
                         return;
@@ -155,3 +157,4 @@ public class Server implements Runnable {
             }
         }
 }
+
