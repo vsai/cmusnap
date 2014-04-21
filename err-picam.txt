@@ -1,0 +1,6 @@
+mmal_vc_port_enable
+failed to enable port vc.ril.video_encode: EINVAL
+mmal_port_enable
+failed to enable connected port
+mmal_connection_enable
+output port couldn't be enabled
