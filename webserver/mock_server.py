@@ -1,5 +1,11 @@
 import socket 
 
+
+#Mocked IP Addresses of Raspberry Pis
+IP_addr = "1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"
+
+
+
 host = '' 
 port = 50000 
 backlog = 5 
@@ -11,4 +17,5 @@ while 1:
     client, address = s.accept() 
     data = client.recv(size) 
     print "received: ", data
+    client.send(IP_addr)
     client.close()

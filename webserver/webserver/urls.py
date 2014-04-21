@@ -5,7 +5,14 @@ from django.conf.urls import patterns, include, url
 # admin.autodiscover()
 
 urlpatterns = patterns('',
-	url(r'^$', 'webserver.views.home', name="home")
+	url(r'^$', 'webserver.views.home', name="home"),
+
+
+  # AJAX URLs
+  url(r'^searchForRasPis$', 'webserver.views.searchForRasPis', name="searchForRasPis"),
+
+
+
     # Examples:
     # url(r'^$', 'webserver.views.home', name='home'),
     # url(r'^webserver/', include('webserver.foo.urls')),
