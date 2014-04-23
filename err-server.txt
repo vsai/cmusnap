@@ -1,0 +1,5 @@
+
+java.lang.NullPointerException
+    at Server$WebServerThread.run(Server.java:114)
+    at java.lang.Thread.run(Thread.java:744)
+
