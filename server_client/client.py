@@ -28,7 +28,7 @@ thread.start_new_thread(read_socket, (s,))
 
 while (True):
     var = raw_input()
-    if (var == '0' or var == '1'):
+    if (var == '0' or var == '1' or var == '2'):
         s.sendall(var) 
 
 s.close()

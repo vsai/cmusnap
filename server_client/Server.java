@@ -4,24 +4,17 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class Server implements Runnable {   
-    private final ConcurrentHashMap<Socket, WriterThread> writers = new ConcurrentHashMap<Socket, WriterThread>();
-    private final ConcurrentHashMap<Socket, ReaderThread> readers = new ConcurrentHashMap<Socket, ReaderThread>();
+    final ConcurrentHashMap<Integer, Socket> nicknames = new ConcurrentHashMap<Integer, Socket>();
+    final ConcurrentHashMap<Integer, Socket> active = new ConcurrentHashMap<Integer, Socket>();
     private final int port = 5000;
     
     public static void main(String[] args) {
         Server s = new Server();
         s.run();
     }
-    
     
     @Override
     public void run() {
@@ -38,8 +31,8 @@ public class Server implements Runnable {
          * Keep accepting connections to a map server while tablets remain to
          * map
          */
-        WriterThread w;
-        ReaderThread r;
+        ClientData d = new ClientData(nicknames, active);
+        int count = 0;
         while (true) {
             Socket newClient = null;
             try {
@@ -54,26 +47,42 @@ public class Server implements Runnable {
                 e.printStackTrace();
                 break;
             }
-            w = new WriterThread(newClient, writers, readers);
-            r = new ReaderThread(newClient, writers, readers);
-            writers.put(newClient, w);
-            readers.put(newClient, r);
-            new Thread(w).start();
-            new Thread(r).start();
+            nicknames.put(count, newClient);
+            active.put(count, newClient);
+            new Thread(new WriterThread(count, d)).start();
+            new Thread(new ReaderThread(count, d)).start();
+            count += 1;
         }
         
     }
+        // Encapsulates all data required by the reader/writer threads
+        class ClientData {
+            final ConcurrentHashMap<Integer, Socket> nicknames;
+            final ConcurrentHashMap<Integer, Socket> active;
+            
+            ClientData(ConcurrentHashMap<Integer, Socket> nicknames,
+                       ConcurrentHashMap<Integer, Socket> active) {
+                this.nicknames = nicknames;
+                this.active = active;
+            }
+
+            void deleteSocket(int s) {
+                this.nicknames.remove(s);
+                this.active.remove(s);
+            }
+        }
         
         class WriterThread implements Runnable {
-            private final Socket socket;
-            private final ConcurrentHashMap<Socket, WriterThread> writers;
-            private final ConcurrentHashMap<Socket, ReaderThread> readers;
+            private final int nickname;
+            private final Socket s;
+            private final ClientData data;
+            private final String ip;
 
-            public WriterThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers, 
-                    ConcurrentHashMap<Socket, ReaderThread> readers) {
-                this.socket = s;
-                this.writers = writers;
-                this.readers = readers;
+            public WriterThread(int nickname, ClientData d) {
+                this.nickname = nickname;
+                this.data = d;
+                this.s = d.nicknames.get(nickname);
+                this.ip = this.s.getInetAddress().toString();
             }
 
             @Override
@@ -88,19 +97,19 @@ public class Server implements Runnable {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
+
                         else if (!((command == '0') || (command == '1'))) {
                             System.err.println("Invalid command " + command);
                             continue;
                         }
                         
                         // Write out to all output streams
-                        for (Socket w : this.writers.keySet()) {
+                        for (Socket w : this.data.active.values()) {
                             out = w.getOutputStream();
                             out.write(command); 
                         }
                     } catch (SocketException socketE) {
-                        writers.remove(this.socket);
-                        readers.remove(this.socket);
+                        this.data.deleteSocket(nickname);
                         return;
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -110,16 +119,16 @@ public class Server implements Runnable {
         }
         
         class ReaderThread implements Runnable {
-            private final Socket socket;
-            private final ConcurrentHashMap<Socket, WriterThread> writers;
-            private final ConcurrentHashMap<Socket, ReaderThread> readers;
+            private final int nickname;
+            private final Socket s;
+            private final ClientData data;
+            private final String ip;
 
-            public ReaderThread(Socket s, ConcurrentHashMap<Socket, WriterThread> writers, 
-                    ConcurrentHashMap<Socket, ReaderThread> readers) {
-                this.socket = s;
-                this.writers = writers;
-                this.readers = readers;
-
+            public ReaderThread(int nickname, ClientData d) {
+                this.nickname = nickname;
+                this.data = d;
+                this.s = d.nicknames.get(nickname);
+                this.ip = this.s.getInetAddress().toString();
             }
 
             @Override
@@ -129,32 +138,47 @@ public class Server implements Runnable {
                 int command;
                 while (true) {
                     try {
-                        in = this.socket.getInputStream();
+                        in = this.s.getInputStream();
                         command = in.read(); // get input signal from raspi
 
                         if (command == -1) {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
+                        else if (command == '2') {
+                            if (this.data.active.containsKey(nickname)) {
+                                System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
+                                this.data.active.remove(nickname);
+                            }
+                            else {
+                                System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
+                                this.data.active.put(nickname, s);
+                            }
+                        }
                         else if (!((command == '0') || (command == '1'))) {
                             System.err.println("Invalid command " + command);
                             continue;
                         }
+                        else {
+                            System.err.println("Got command " + command + " from pi at " + ip);
+                        }
                         
                         //Write out to all sockets
-                        for (Socket w : this.writers.keySet()) {
+                        for (Socket w : this.data.active.values()) {
                             out = w.getOutputStream();
                             out.write(command); 
                         }
                     } catch (SocketException socketE) {
-                        writers.remove(this.socket);
-                        readers.remove(this.socket);
+                        this.data.deleteSocket(nickname);
                         return;
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
+                    
                 }
             }
         }
 }
+
+
 
