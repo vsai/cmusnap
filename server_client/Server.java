@@ -1,5 +1,7 @@
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -19,6 +21,11 @@ public class Server implements Runnable {
     @Override
     public void run() {
         final ServerSocket serverSocket;
+        Socket newClient;
+        ClientData d = new ClientData(nicknames, active);
+        int count = 0;
+
+        // Open a server socket
         try {
             serverSocket = new ServerSocket(port);
         } catch (IOException e) {
@@ -27,28 +34,31 @@ public class Server implements Runnable {
             return;
         }
 
-        /*
-         * Keep accepting connections to a map server while tablets remain to
-         * map
-         */
-        ClientData d = new ClientData(nicknames, active);
-        int count = 0;
+        //First accept a connection from the web server to communicate about active clients
+        try {
+            System.err.println("Server waiting for webserver connection...");
+            newClient = serverSocket.accept();
+            System.err.println("Server received incoming connection from " + newClient.getInetAddress().toString());
+            new Thread(new WebServerThread(newClient, d)).start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        // Keep accepting and serving clients 
         while (true) {
-            Socket newClient = null;
             try {
                 // Wait for an incoming client connection
-                System.err
-                        .println("Server waiting for incoming connections...");
+                System.err.println("Server waiting for incoming connections...");
                 newClient = serverSocket.accept();
                 System.err.println("Server received incoming connection from " + newClient.getInetAddress().toString());
             } catch (IOException e) {
-                System.err
-                        .println("Server received IOException while listening for clients...");
+                System.err.println("Server received IOException while listening for clients...");
                 e.printStackTrace();
                 break;
             }
-            nicknames.put(count, newClient);
-            active.put(count, newClient);
+            
+            // Add client to data
+            d.addSocket(count, newClient);
             new Thread(new WriterThread(count, d)).start();
             new Thread(new ReaderThread(count, d)).start();
             count += 1;
@@ -66,10 +76,69 @@ public class Server implements Runnable {
                 this.active = active;
             }
 
+            void addSocket(int count, Socket s) {
+                nicknames.put(count, s);
+                active.put(count, s);
+            }
+            
             void deleteSocket(int s) {
                 this.nicknames.remove(s);
                 this.active.remove(s);
             }
+        }
+        
+        class WebServerThread implements Runnable {
+            private Socket socket;
+            private ClientData data;
+            
+            public WebServerThread(Socket s, ClientData d) {
+                this.socket = s;
+                this.data = d;
+            }
+            
+            @Override
+            public void run() {
+                BufferedReader inFromClient = null;
+                String s = "";
+
+                try {
+                    inFromClient = new BufferedReader(new InputStreamReader (socket.getInputStream()));
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                
+                while (true) {
+                    try {
+                        // Read list of active clients from web server
+                        s = inFromClient.readLine();
+                        String[] pieces = s.split(",");
+                        String[] subpieces;
+                        int nickname;
+                        boolean value;
+                        // Update active set (for valid client nicknames provided
+                        for (String piece : pieces) {
+                            subpieces = piece.split(":", 2);
+                            nickname = Integer.valueOf(subpieces[0]);
+                            value = (Integer.valueOf(subpieces[1]) > 0) ? true : false;
+                            System.err.println("Nickname: " + nickname + "Value: " + value);
+                            System.err.println(this.data.nicknames.toString());
+                            if (this.data.nicknames.containsKey(nickname)) {
+                                if (value) 
+                                    this.data.active.put(nickname, this.data.nicknames.get(nickname));
+                                else 
+                                    this.data.active.remove(nickname);
+                            }
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                }
+            }
+            
         }
         
         class WriterThread implements Runnable {
@@ -145,7 +214,7 @@ public class Server implements Runnable {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
-                        else if (command == '2') {
+                        /*else if (command == '2') {
                             if (this.data.active.containsKey(nickname)) {
                                 System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
                                 this.data.active.remove(nickname);
@@ -154,7 +223,7 @@ public class Server implements Runnable {
                                 System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
                                 this.data.active.put(nickname, s);
                             }
-                        }
+                        }*/
                         else if (!((command == '0') || (command == '1'))) {
                             System.err.println("Invalid command " + command);
                             continue;
