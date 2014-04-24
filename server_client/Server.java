@@ -214,16 +214,9 @@ public class Server implements Runnable {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
-                        /*else if (command == '2') {
-                            if (this.data.active.containsKey(nickname)) {
-                                System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
-                                this.data.active.remove(nickname);
-                            }
-                            else {
-                                System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
-                                this.data.active.put(nickname, s);
-                            }
-                        }*/
+                        else if (!this.data.active.containsKey(this.nickname)) {
+                            continue;
+                        }
                         else if (!((command == '0') || (command == '1'))) {
                             System.err.println("Invalid command " + command);
                             continue;

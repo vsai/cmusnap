@@ -9,12 +9,13 @@
 import socket, thread
 
 def read_socket(s):
+    """ Receives input from the main server """
     while (True):
         data = s.recv(1024)
         if (data == '0'):
-            pass
+            print "Successfully toggled active set"
         elif (data == '1'):
-            pass
+            print "Failed to toggle active set"
 
 HOST = 'unix4.andrew.cmu.edu'   # The remote host
 PORT = 5000                     # The same port as used by the server
@@ -24,6 +25,7 @@ s.connect((HOST, PORT))
 thread.start_new_thread(read_socket, (s,))
 
 while (True):
+    """ Input a string of the format specified above. """
     var = raw_input()
     s.sendall(var + '\n') 
 
