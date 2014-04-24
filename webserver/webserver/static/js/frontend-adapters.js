@@ -5,6 +5,10 @@ function updateTable () {
   // Clear out whatever was there earlier
   devices.html("");
 
+  // Add the forms and submit button
+  devices.html("<form id='form' action='config' method='post'></form>");
+  form = $("#form");
+
   var device_types = Object.keys(currDevices);
   for (i = 0; i < device_types.length; i++) {
 
@@ -21,7 +25,7 @@ function updateTable () {
     for (j = 0; j < currDevices[device_name].length; j++) {
       var row = $("<tr></tr>");
 
-      var checkbox = $("<td><input type='checkbox'></input></td>");
+      var checkbox = $("<td><input type='checkbox' value='"+ currDevices[device_name][j] +"'></input></td>");
       var ip = $("<td>"+ currDevices[device_name][j] +"</td>");
 
       row.append(checkbox);
@@ -33,6 +37,8 @@ function updateTable () {
     panel_body.append(panel_table);
     panel.append(panel_hdr);
     panel.append(panel_body);
-    devices.append(panel);
-  } 
+    form.append(panel);
+  }
+
+  form.append($("<input type='submit' class='btn btn-success' value='Configure'>")); 
 }

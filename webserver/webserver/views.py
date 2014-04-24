@@ -16,16 +16,8 @@ def searchForRasPis(request):
   global IP_addresses
   print "searching for rasPis here..."
 
-
-
-  #ASSUMING I TALK TO SERVER
-  #server_result = ["1.2.3.4", "5.6.7.8"]
-
-  #context['RasPis'] = server_result
   thread.start_new_thread(configure, ())
 
-  print "--"
-  print "IP:", IP_addresses
   context['RasPis'] = IP_addresses
   data = json.dumps(context, cls=DjangoJSONEncoder)
 
@@ -35,14 +27,11 @@ def searchForRasPis(request):
 def configure():
   global IP_addresses
   print "called configure"
-  host = 'localhost'
+  host = 'localhost' #change this to the correct IP address of server
   port = 50000 
   size = 1024 
   s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
   s.connect((host,port)) 
-  s.send('Hello, World!') 
   data = s.recv(size) 
   s.close() 
-  print 'Received:', data
   IP_addresses = data.split(',')
-  print 'IPs:', IP_addresses

@@ -15,7 +15,5 @@ s.bind((host,port))
 s.listen(backlog) 
 while 1: 
     client, address = s.accept() 
-    data = client.recv(size) 
-    print "received: ", data
     client.send(IP_addr)
     client.close()
