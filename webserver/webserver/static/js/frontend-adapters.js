@@ -1,13 +1,11 @@
 // updates the table with IP address info of the RasPis.
 function updateTable () {
-  var devices = $("#devices");
+  form = $("#device-form");
 
-  // Clear out whatever was there earlier
-  devices.html("");
+  var what = $("#oomalalala");
+  console.log("wut");
+  console.log(what)
 
-  // Add the forms and submit button
-  devices.html("<form id='form' action='config' method='post'></form>");
-  form = $("#form");
 
   var device_types = Object.keys(currDevices);
   for (i = 0; i < device_types.length; i++) {
@@ -25,7 +23,7 @@ function updateTable () {
     for (j = 0; j < currDevices[device_name].length; j++) {
       var row = $("<tr></tr>");
 
-      var checkbox = $("<td><input type='checkbox' value='"+ currDevices[device_name][j] +"'></input></td>");
+      var checkbox = $("<td><input type='checkbox' name='ip_addr' value='"+ currDevices[device_name][j] +"' checked></input></td>");
       var ip = $("<td>"+ currDevices[device_name][j] +"</td>");
 
       row.append(checkbox);
@@ -40,5 +38,5 @@ function updateTable () {
     form.append(panel);
   }
 
-  form.append($("<input type='submit' class='btn btn-success' value='Configure'>")); 
+  form.append($("<input type='submit' class='btn btn-info' value='Configure'>")); 
 }

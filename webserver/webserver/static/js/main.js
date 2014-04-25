@@ -1,12 +1,17 @@
 var currDevices = {}
 
 $(document).ready(function() {
-  update();
-  setInterval(update, 1000);
+  pollForUpdates();
+
+  $('#device-form').submit(config_submit_handler);
+  
 });
 
 
-
+function pollForUpdates() {
+  update();
+  //setInterval(update, 1000);
+}
 
 
 // Makes an async call to the backend to get information of Raspberry Pis
@@ -18,4 +23,18 @@ function update() {
     currDevices = res;
     updateTable();
   });
+}
+
+function config_submit_handler(e) {
+   e.preventDefault();
+   $.ajax({
+     type: 'POST',
+     url: 'send-config',
+     data: $(this).serialize(),
+     success: function(data) {
+      console.log("returned from backend! :)");
+      console.log(data);
+     }
+   });
+
 }

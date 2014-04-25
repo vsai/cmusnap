@@ -10,6 +10,7 @@ urlpatterns = patterns('',
 
   # AJAX URLs
   url(r'^searchForRasPis$', 'webserver.views.searchForRasPis', name="searchForRasPis"),
+  url(r'^send-config$', 'webserver.views.config_handler', name="configureRasPis"),
 
 
 

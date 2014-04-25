@@ -3,8 +3,8 @@ Carnegie Mellon University
 Spring 2014
 
 Group Members:
-Rishabh Alaap Singh
 Adewale Desalu
+Rishabh Alaap Singh
 Vijay Iyengar
 Vishalsai Daswani
 
