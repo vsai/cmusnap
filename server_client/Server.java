@@ -1,8 +1,11 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -18,10 +21,18 @@ public class Server implements Runnable {
         s.run();
     }
     
+    private void pushToWebClient(PrintWriter p, Socket newClient, int nickname) throws IOException {
+        String ip = newClient.getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
+        String toWrite = ip +  ":" + String.valueOf(nickname);
+        p.print(toWrite);
+        p.flush();
+    }
+    
     @Override
     public void run() {
         final ServerSocket serverSocket;
-        Socket newClient;
+        Socket webClient, newClient;
+        PrintWriter p;
         ClientData d = new ClientData(nicknames, active);
         int count = 0;
 
@@ -37,11 +48,13 @@ public class Server implements Runnable {
         //First accept a connection from the web server to communicate about active clients
         try {
             System.err.println("Server waiting for webserver connection...");
-            newClient = serverSocket.accept();
-            System.err.println("Server received incoming connection from " + newClient.getInetAddress().toString());
-            new Thread(new WebServerThread(newClient, d)).start();
+            webClient = serverSocket.accept();
+            System.err.println("Server received incoming connection from " + webClient.getInetAddress().toString());
+            p = new PrintWriter(webClient.getOutputStream());
+            new Thread(new WebServerThread(webClient, d)).start();
         } catch (IOException e) {
             e.printStackTrace();
+            return;
         }
         
         // Keep accepting and serving clients 
@@ -59,6 +72,14 @@ public class Server implements Runnable {
             
             // Add client to data
             d.addSocket(count, newClient);
+            
+            // Send message to web client with RaspiIp:nickname
+            try {
+                this.pushToWebClient(p, newClient, count);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            
             new Thread(new WriterThread(count, d)).start();
             new Thread(new ReaderThread(count, d)).start();
             count += 1;
@@ -120,8 +141,6 @@ public class Server implements Runnable {
                             subpieces = piece.split(":", 2);
                             nickname = Integer.valueOf(subpieces[0]);
                             value = (Integer.valueOf(subpieces[1]) > 0) ? true : false;
-                            System.err.println("Nickname: " + nickname + "Value: " + value);
-                            System.err.println(this.data.nicknames.toString());
                             if (this.data.nicknames.containsKey(nickname)) {
                                 if (value) 
                                     this.data.active.put(nickname, this.data.nicknames.get(nickname));
@@ -209,16 +228,25 @@ public class Server implements Runnable {
                     try {
                         in = this.s.getInputStream();
                         command = in.read(); // get input signal from raspi
-
                         if (command == -1) {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
-                        else if (!this.data.active.containsKey(this.nickname)) {
+                        /*else if (command == '2') {
+                            if (this.data.active.containsKey(nickname)) {
+                                System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
+                                this.data.active.remove(nickname);
+                            }
+                            else {
+                                System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
+                                this.data.active.put(nickname, s);
+                            }
+                        }*/
+                        else if (!this.data.active.containsKey(nickname)) {
                             continue;
                         }
                         else if (!((command == '0') || (command == '1'))) {
-                            System.err.println("Invalid command " + command);
+                            //System.err.println("Invalid command " + command);
                             continue;
                         }
                         else {
@@ -241,6 +269,5 @@ public class Server implements Runnable {
             }
         }
 }
-
 
 

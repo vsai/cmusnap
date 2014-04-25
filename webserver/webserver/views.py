@@ -5,12 +5,18 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 import socket, thread
 
-config = {}; 
+config = {};
+ipsToIds = {}
+HOST = 'unix4.andrew.cmu.edu'   # The remote host
+PORT = 5000                     # The same port as used by the server
+SIZE = 1024                     # Receive size of data from server
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((HOST, PORT))
+
 
 def home(request):
   global config
   context = {}
-  config = recv_server()
   context['RasPis'] = config
   return render(request, "index.html", context)
 
@@ -40,52 +46,35 @@ def config_handler(request):
   
 
 def recv_server():
-  # TODO: THIS NEEDS TO BE FIXED TO ACTUAL CODE
-
-  # global IP_addresses
-  # print "called recv_server"
-  # host = 'localhost' #change this to the correct IP address of server
-  # port = 50000 
-  # size = 1024 
-  # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  # s.connect((host,port)) 
-  # data = s.recv(size) 
-  # s.close() 
-  # IP_addresses = data.split(',')
-
-  global config
-  recv_data = "0:1,1:0,2:0,3:1,5:0"
-  config = mapSRVRDataToDict(recv_data)
-  print "-->"
+    global config,s
+    while True:
+        data = s.recv(SIZE) 
+        config = mapSRVRDataToDict(data)
 
 
 def send_server():
-  global config
-  print "trying to send server!!", mapDictToSRVRData(config)
-
-
-
+    global config
+    toSend = mapDictToSRVRData(config)
+    s.sendall(toSend) 
 
 
 ##### HELPERS #####
 
 def mapSRVRDataToDict(input_str):
-  res = {}
-  data_array = input_str.split(',')
-  for i in range(0,len(data_array)):
-    item_info = data_array[i].split(':')
-    item_name = item_info[0]
-    item_config = item_info[1]
-    res[item_name] = item_config
-
-  return res
+  """ Input has form ip:id for a new raspi at ip 'ip' with id 'id' """
+  global config, ipsToIds
+  (ip, _, nickname) = input_str.partition(':')
+  ipsToIds[ip] = nickname
+  config[ip] = 1
+  return config
 
 def mapDictToSRVRData(config):
+  global ipsToIds
   res_str = ""
 
-  for k in iter(config):
-    keyStr = str(k)
-    valStr = str(config[k])
+  for ip in config:
+    keyStr = str(ipsToIds[ip])
+    valStr = str(config[ip])
     keyValStr = keyStr + ":" + valStr
 
     res_str += keyValStr + ","
@@ -93,7 +82,7 @@ def mapDictToSRVRData(config):
   # remove the last comma to fit spec
   res_str = res_str[:-1]
 
-  return res_str
+  return (res_str + '\n')
 
 
 
@@ -109,19 +98,4 @@ def update_config(updated_selected):
       config[k] = 1
     else:
       config[k] = 0
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
 
