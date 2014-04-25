@@ -1,36 +1,59 @@
 // updates the table with IP address info of the RasPis.
-function updateTable () {
-  form = $("#device-form");
-
-  var what = $("#oomalalala");
-  console.log("wut");
-  console.log(what)
-
+function updateTable() {
+  form = $("#form-section");
+  form.html("");
+  btn = $("#button-section");
 
   var device_types = Object.keys(currDevices);
+
+  
   for (i = 0; i < device_types.length; i++) {
 
-    var device_name = device_types[i]
+    var cat_name = device_types[i] //Ex. "RasPi"
 
     // Make a new panel
-    panel = $("<div class='panel panel-default' id='"+ device_name +"-panel'></div>");
+    panel = $("<div class='panel panel-default' id='"+ cat_name +"-panel'></div>");
 
-    panel_hdr = $("<div class='panel-heading'><h3 class='panel-title'>"+ device_name +"</h3></div>");
+    panel_hdr = $("<div class='panel-heading'><h3 class='panel-title'>"+ cat_name +"</h3></div>");
     panel_body = $("<div class='panel-body'></div>");
-    panel_table = $("<table class='table' id='"+ device_name +"-panelTable'>");
+    panel_table = $("<table class='table' id='"+ cat_name +"-panelTable'>");
 
-    // To this new panel, add all IPs found
-    for (j = 0; j < currDevices[device_name].length; j++) {
+
+    var devices_in_cat = Object.keys(currDevices[cat_name]);
+
+    // ---------
+
+    // To this new panel, add all the devices found
+    for (j = 0; j < devices_in_cat.length; j++) {
       var row = $("<tr></tr>");
 
-      var checkbox = $("<td><input type='checkbox' name='ip_addr' value='"+ currDevices[device_name][j] +"' checked></input></td>");
-      var ip = $("<td>"+ currDevices[device_name][j] +"</td>");
+      var dev_name = devices_in_cat[j];
+      var checked = parseInt(currDevices[cat_name][dev_name]);
+
+      console.log("dev_name = ", dev_name);
+      console.log("checked = ", checked);
+
+      var checkbox;
+
+      if (checked) {
+      checkbox = $("<td><input type='checkbox' name='dev_name' value='"+ dev_name +"' checked></input></td>");
+      } else {
+      checkbox = $("<td><input type='checkbox' name='dev_name' value='"+ dev_name +"'></input></td>"); 
+      }
+      var dev = $("<td>"+ dev_name +"</td>");
 
       row.append(checkbox);
-      row.append(ip);
+      row.append(dev);
 
       panel_table.append(row);
     }
+
+    // ---------
+
+    
+    
+
+
 
     panel_body.append(panel_table);
     panel.append(panel_hdr);
@@ -38,5 +61,5 @@ function updateTable () {
     form.append(panel);
   }
 
-  form.append($("<input type='submit' class='btn btn-info' value='Configure'>")); 
+    btn.append($("<input type='submit' class='btn btn-info' value='Configure'>")); 
 }
