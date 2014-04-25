@@ -30,12 +30,6 @@ function update() {
 function config_submit_handler(e) {
    e.preventDefault();
    
-   // var send_data = {};
-   // send_data['formData'] = $(this).serialize();
-   // send_data['allDeviceNames'] = Object.keys(currDevices['RasPis']);
-
-   //console.log("send_data = ", send_data);
-
    $.ajax({
      type: 'POST',
      url: 'send-config',

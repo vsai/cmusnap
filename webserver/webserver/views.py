@@ -39,9 +39,6 @@ def config_handler(request):
   return HttpResponse(data, mimetype="application/json", status="200")
   
 
-
-
-
 def recv_server():
   # TODO: THIS NEEDS TO BE FIXED TO ACTUAL CODE
 
@@ -64,7 +61,9 @@ def recv_server():
 
 def send_server():
   global config
-  print "trying to send server!!", config
+  print "trying to send server!!", mapDictToSRVRData(config)
+
+
 
 
 
@@ -81,11 +80,37 @@ def mapSRVRDataToDict(input_str):
 
   return res
 
+def mapDictToSRVRData(config):
+  res_str = ""
+
+  for k in iter(config):
+    keyStr = str(k)
+    valStr = str(config[k])
+    keyValStr = keyStr + ":" + valStr
+
+    res_str += keyValStr + ","
+
+  # remove the last comma to fit spec
+  res_str = res_str[:-1]
+
+  return res_str
+
+
+
+
+
+
 # changes the config global var
 def update_config(updated_selected):
   global config
 
-  print "hey there!"
+  for k in iter(config):
+    if k in updated_selected:
+      config[k] = 1
+    else:
+      config[k] = 0
+
+    
 
 
 
