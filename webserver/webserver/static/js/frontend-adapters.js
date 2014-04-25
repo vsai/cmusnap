@@ -18,10 +18,8 @@ function updateTable() {
     panel_body = $("<div class='panel-body'></div>");
     panel_table = $("<table class='table' id='"+ cat_name +"-panelTable'>");
 
-
     var devices_in_cat = Object.keys(currDevices[cat_name]);
 
-    // ---------
 
     // To this new panel, add all the devices found
     for (j = 0; j < devices_in_cat.length; j++) {
@@ -30,11 +28,7 @@ function updateTable() {
       var dev_name = devices_in_cat[j];
       var checked = parseInt(currDevices[cat_name][dev_name]);
 
-      console.log("dev_name = ", dev_name);
-      console.log("checked = ", checked);
-
       var checkbox;
-
       if (checked) {
       checkbox = $("<td><input type='checkbox' name='dev_name' value='"+ dev_name +"' checked></input></td>");
       } else {
@@ -48,18 +42,13 @@ function updateTable() {
       panel_table.append(row);
     }
 
-    // ---------
-
-    
-    
-
-
-
     panel_body.append(panel_table);
     panel.append(panel_hdr);
     panel.append(panel_body);
     form.append(panel);
   }
 
-    btn.append($("<input type='submit' class='btn btn-info' value='Configure'>")); 
+
+    $("#config-btn").remove();
+    btn.append($("<input type='submit' id='config-btn' class='btn btn-info' value='Configure'>")); 
 }
