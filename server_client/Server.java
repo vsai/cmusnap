@@ -14,18 +14,23 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Server implements Runnable {   
     final ConcurrentHashMap<Integer, Socket> nicknames = new ConcurrentHashMap<Integer, Socket>();
     final ConcurrentHashMap<Integer, Socket> active = new ConcurrentHashMap<Integer, Socket>();
-    private final int port = 5000;
+    private final int port = 4863;
     
     public static void main(String[] args) {
         Server s = new Server();
         s.run();
     }
     
-    private void pushToWebClient(PrintWriter p, Socket newClient, int nickname) throws IOException {
-        String ip = newClient.getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
-        String toWrite = ip +  ":" + String.valueOf(nickname);
-        p.print(toWrite);
-        p.flush();
+    private void pushToWebClient(PrintWriter p) throws IOException {
+        String ip;
+        String toWrite = "";
+        for (int nickname : this.nicknames.keySet()) {
+            ip = this.nicknames.get(nickname).getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
+            toWrite += ip + ":" + String.valueOf(nickname) + ",";
+        }
+        toWrite = toWrite.substring(0, toWrite.length() - 1);
+    	p.print(toWrite);
+    	p.flush();
     }
     
     @Override
@@ -48,7 +53,7 @@ public class Server implements Runnable {
         //First accept a connection from the web server to communicate about active clients
         try {
             System.err.println("Server waiting for webserver connection...");
-            webClient = serverSocket.accept();
+        	webClient = serverSocket.accept();
             System.err.println("Server received incoming connection from " + webClient.getInetAddress().toString());
             p = new PrintWriter(webClient.getOutputStream());
             new Thread(new WebServerThread(webClient, d)).start();
@@ -73,12 +78,12 @@ public class Server implements Runnable {
             // Add client to data
             d.addSocket(count, newClient);
             
-            // Send message to web client with RaspiIp:nickname
+            // Send message to web client with all RaspiIp:nickname
             try {
-                this.pushToWebClient(p, newClient, count);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+				this.pushToWebClient(p);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
             
             new Thread(new WriterThread(count, d)).start();
             new Thread(new ReaderThread(count, d)).start();
@@ -98,8 +103,8 @@ public class Server implements Runnable {
             }
 
             void addSocket(int count, Socket s) {
-                nicknames.put(count, s);
-                active.put(count, s);
+            	nicknames.put(count, s);
+            	active.put(count, s);
             }
             
             void deleteSocket(int s) {
@@ -108,56 +113,58 @@ public class Server implements Runnable {
             }
         }
         
+        // Thread that communicates with the WebServer
         class WebServerThread implements Runnable {
-            private Socket socket;
-            private ClientData data;
-            
-            public WebServerThread(Socket s, ClientData d) {
-                this.socket = s;
-                this.data = d;
-            }
-            
-            @Override
-            public void run() {
-                BufferedReader inFromClient = null;
-                String s = "";
+        	private Socket socket;
+        	private ClientData data;
+        	
+			public WebServerThread(Socket s, ClientData d) {
+				this.socket = s;
+				this.data = d;
+			}
+			
+			@Override
+			public void run() {
+			    BufferedReader inFromClient = null;
+			    String s = "";
 
-                try {
-                    inFromClient = new BufferedReader(new InputStreamReader (socket.getInputStream()));
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-                
-                while (true) {
-                    try {
-                        // Read list of active clients from web server
-                        s = inFromClient.readLine();
-                        String[] pieces = s.split(",");
-                        String[] subpieces;
-                        int nickname;
-                        boolean value;
-                        // Update active set (for valid client nicknames provided
-                        for (String piece : pieces) {
-                            subpieces = piece.split(":", 2);
-                            nickname = Integer.valueOf(subpieces[0]);
-                            value = (Integer.valueOf(subpieces[1]) > 0) ? true : false;
-                            if (this.data.nicknames.containsKey(nickname)) {
-                                if (value) 
-                                    this.data.active.put(nickname, this.data.nicknames.get(nickname));
-                                else 
-                                    this.data.active.remove(nickname);
-                            }
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        return;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        return;
-                    }
-                }
-            }
-            
+				try {
+					inFromClient = new BufferedReader(new InputStreamReader (socket.getInputStream()));
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+				
+                // Listens to webserver to determine which clients to turn on and off and makes those changes 
+			    while (true) {
+			        try {
+			        	// Read list of active clients from web server
+						s = inFromClient.readLine();
+				        String[] pieces = s.split(",");
+				        String[] subpieces;
+				        int nickname;
+				        boolean value;
+			        	// Update active set (for valid client nicknames provided)
+				        for (String piece : pieces) {
+				        	subpieces = piece.split(":", 2);
+				        	nickname = Integer.valueOf(subpieces[0]);
+				        	value = (Integer.valueOf(subpieces[1]) > 0) ? true : false;
+				        	if (this.data.nicknames.containsKey(nickname)) {
+				        		if (value) 
+				        			this.data.active.put(nickname, this.data.nicknames.get(nickname));
+				        		else 
+				        			this.data.active.remove(nickname);
+				        	}
+				        }
+			        } catch (IOException e) {
+			        	e.printStackTrace();
+			        	return;
+			        } catch (Exception e) {
+			        	e.printStackTrace();
+			        	return;
+			        }
+			    }
+			}
+        	
         }
         
         class WriterThread implements Runnable {
@@ -262,7 +269,7 @@ public class Server implements Runnable {
                         this.data.deleteSocket(nickname);
                         return;
                     } catch (Exception e) {
-                        e.printStackTrace();
+                    	e.printStackTrace();
                     }
                     
                 }

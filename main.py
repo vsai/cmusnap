@@ -14,6 +14,9 @@ import boto
 from boto.s3.connection import S3Connection, Location
 from boto.s3.key import Key
 
+def shutdown():
+	print 'Shutting down Pi'
+	os.system('sudo shutdown -h now')
 
 ########
 ##Configurations
@@ -32,6 +35,8 @@ outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 19, 'cameraError' : 19, 'generalError' : 19}
 inputPins = {'takePhoto' : 8, 'takeVideo' : 10, 'takeLivestream' : 12, 'takeGroupPhoto' : 16}
 
+HOST = 'unix4.andrew.cmu.edu'
+PORT = 4863
 root_dir = "../img/"
 ##End configurations
 ########
@@ -41,24 +46,47 @@ root_dir = "../img/"
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
-camera = picamera.PiCamera()
+try:
+	camera = picamera.PiCamera()
+except:
+	print 'Camera not found.'
+	shutdown()
+
 
 ##End Pi Setup
 ########
 def read_socket(s):
+    """ Attempts to read from server """
     while True:
-        data = s.recv(1024)
+        try:
+            data = s.recv(1024)
+        except:
+            continue
         if (data == '0'):
             take_photo(99)
         elif (data == '1'):
             take_video(99)
 
+def connectToServer(s):
+    """ Attempts to connect to server """
+    while True:
+        try:
+            s.connect((HOST, PORT))
+        except:
+            print "Could not connect to server. Will try again in 5 seconds"
+            time.sleep(5)
+        else:
+            print "Successfully connected to server!"
+            break
+    
+    read_socket(s)
+
+
+
 def sendIpAddr():
-    HOST = 'unix4.andrew.cmu.edu'
-    PORT = 5000
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((HOST, PORT))
-    thread.start_new_thread(read_socket, (s,)) 
+    # After Wifi is established, connects to server, then starts reading from server
+    thread.start_new_thread(testWifi, (s,))
     return s
 
 def testWifi():
@@ -75,7 +103,9 @@ def testWifi():
         else:
             print "Connected"
             GPIO.output(outputPins.get('wifiError'), False)
-            return
+            break
+    
+    connectToServer(s)           
 
 def setupPins():
     #validates if the pin set up mentioned in configs is alright
@@ -150,7 +180,7 @@ def setupTriggers(s):
         print "in take_group_photo()"
         s.sendall('0')
 
-    GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=100)
+    GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=500)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
     GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=100)
     pass
@@ -166,7 +196,7 @@ def main():
     testWifi()
     s = sendIpAddr()
     setupTriggers(s)
-
+    print " Done setting triggers "
     while True:
         try:
             pass
