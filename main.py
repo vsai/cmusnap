@@ -166,6 +166,7 @@ def take_photo(channel):
 def take_video(channel):
     if (channel == 99):
         print "thanks to distributed server"
+        channel = 1 #set to a random channel thats available on GPIO so GPIO.input(channel) doesnt faile
     if GPIO.input(channel):
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)

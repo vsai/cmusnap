@@ -94,7 +94,7 @@ def mapDictToSRVRData(config):
   res_str = ""
 
   for nickname in config:
-    keyStr = str(idsToIps[nickname])
+    keyStr = str(nickname)
     valStr = str(config[nickname])
     keyValStr = keyStr + ":" + valStr
 
