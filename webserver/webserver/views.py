@@ -8,11 +8,23 @@ import socket, thread
 config = {};
 ipsToIds = {}
 HOST = 'unix4.andrew.cmu.edu'   # The remote host
-PORT = 5000                     # The same port as used by the server
+PORT = 4863                     # The same port as used by the server
 SIZE = 1024                     # Receive size of data from server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
 
+def connectToServer(s):
+    """ Attempts to connect to server """
+    while True:
+        try:
+            s.connect((HOST, PORT))
+        except:
+            print "Could not connect to server. Will try again in 5 seconds"
+            time.sleep(5)
+        else:
+            print "Successfully connected to server!"
+            return
+
+thread.start_new_thread(connectToServer, (s,))
 
 def home(request):
   global config
@@ -46,10 +58,10 @@ def config_handler(request):
   
 
 def recv_server():
-    global config,s
+    global config,s, ipsToIds
     while True:
         data = s.recv(SIZE) 
-        config = mapSRVRDataToDict(data)
+        config, ipsToIds = mapSRVRDataToDict(data)
 
 
 def send_server():
@@ -63,10 +75,19 @@ def send_server():
 def mapSRVRDataToDict(input_str):
   """ Input has form ip:id for a new raspi at ip 'ip' with id 'id' """
   global config, ipsToIds
-  (ip, _, nickname) = input_str.partition(':')
-  ipsToIds[ip] = nickname
-  config[ip] = 1
-  return config
+  newIpsToIds = dict()
+  new_config = dict()
+  inputData = input_str.split(',')
+  for s in inputData:
+    (ip, _, nickname) = s.partition(':')
+    # Add all new Ips and default their configuration to on
+    newIpsToIds[ip] = nickname
+    if ip not in ipsToIds:
+        new_config[ip] = 1
+    else: 
+        new_config[ip] = config[ip]
+
+  return new_config, newIpsToIds
 
 def mapDictToSRVRData(config):
   global ipsToIds
@@ -83,11 +104,6 @@ def mapDictToSRVRData(config):
   res_str = res_str[:-1]
 
   return (res_str + '\n')
-
-
-
-
-
 
 # changes the config global var
 def update_config(updated_selected):

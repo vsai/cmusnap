@@ -47,8 +47,8 @@ To configure Raspberry Pi:
 
 Pin Configuration:
 Output:
-    3 - REDLED
-    5 - GREENLED
+    3 - GREENLED
+    5 - REDLED
 
 Input:
     7 - TAKE_LIVESTREAM

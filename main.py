@@ -14,6 +14,9 @@ import boto
 from boto.s3.connection import S3Connection, Location
 from boto.s3.key import Key
 
+def shutdown():
+	print 'Shutting down Pi'
+	os.system('sudo shutdown -h now')
 
 ########
 ##Configurations
@@ -24,28 +27,33 @@ from configs import *
 # - AWS_SECRET_ACCESS_KEY
 # - bucket_name
 
-#outputPins = {'takePhoto' : 3, 'takeVideo' : 5, 'takeLivestream' : 7, \
-#                'wifiError' : 19, 'cameraError' : 21, 'generalError' : 23}
-#inputPins = {'takePhoto' : 11, 'takeVideo' : 12, 'takeLivestream' : 13}
-
 outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
-                'wifiError' : 19, 'cameraError' : 19, 'generalError' : 19}
-inputPins = {'takePhoto' : 8, 'takeVideo' : 10, 'takeLivestream' : 12, 'takeGroupPhoto' : 16}
+                'wifiError' : 5, 'cameraError' : 5, 'generalError' : 5}
+inputPins = {'takePhoto' : 11, 'takeVideo' : 13, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
 
+HOST = 'unix4.andrew.cmu.edu'
+PORT = 4863
 root_dir = "../img/"
 ##End configurations
 ########
 
 ########
 ##Raspberry Pi Setup
-
+CONNECTED_WIFI = False
+CONNECTED_SERVER = False
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
-camera = picamera.PiCamera()
+try:
+	camera = picamera.PiCamera()
+except:
+	print 'Camera not found.'
+	shutdown()
+
 
 ##End Pi Setup
 ########
 def read_socket(s):
+    """ Attempts to read from server """
     while True:
         data = s.recv(1024)
         if (data == '0'):
@@ -53,15 +61,34 @@ def read_socket(s):
         elif (data == '1'):
             take_video(99)
 
+def connectToServer(s):
+    """ Attempts to connect to server """
+    GPIO.output(output.get('wifiError'), True)
+    while True:
+        try:
+            s.connect((HOST, PORT))
+        except:
+            print "Could not connect to server. Will try again in 5 seconds"
+            for i in xrange(5):
+                GPIO.output(output.get('wifiError'), False)
+                time.sleep(0.5)
+                GPIO.output(output.get('wifiError'), True)
+                time.sleep(0.5)
+        else:
+            CONNECTED_SERVER = True
+            GPIO.output(outputPins.get('wifiError'), False)
+            print "Successfully connected to server!"
+            break
+    
+    read_socket(s)
+
 def sendIpAddr():
-    HOST = 'unix4.andrew.cmu.edu'
-    PORT = 5000
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((HOST, PORT))
-    thread.start_new_thread(read_socket, (s,)) 
+    # After Wifi is established, connects to server, then starts reading from server
+    thread.start_new_thread(testWifi, (s,))
     return s
 
-def testWifi():
+def testWifi(s):
     GPIO.output(outputPins.get('wifiError'), True)
     time.sleep(1)
     while True:
@@ -71,11 +98,18 @@ def testWifi():
             urllib2.urlopen("http://www.google.com").close()
         except urllib2.URLError:
             print "Not Connected"
-            time.sleep(1)
+            for i in xrange(5):
+                GPIO.output(output.get('wifiError'), False)
+                time.sleep(0.5)
+                GPIO.output(output.get('wifiError'), True)
+                time.sleep(0.5)
         else:
             print "Connected"
+            CONNECTED_WIFI = True
             GPIO.output(outputPins.get('wifiError'), False)
-            return
+            break
+    
+    connectToServer(s)           
 
 def setupPins():
     #validates if the pin set up mentioned in configs is alright
@@ -113,10 +147,9 @@ def generate_filename(extension):
 def upload_file_aws(filename, keyname):
     conn = S3Connection(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
     bucket = conn.create_bucket(bucket_name)
-    #bucks = conn.get_all_buckets()
     k = Key(bucket)
     k.key = keyname
-    k.set_contents_from_filename(filename)    
+    k.set_contents_from_filename(filename)
 
 def take_photo(channel):
     if (channel == 99):
@@ -147,8 +180,11 @@ def take_video(channel):
 def setupTriggers(s):
     #bouncetime = ignore further edges for certain time period (specified in ms)
     def take_group_photo(channel):
-        print "in take_group_photo()"
-        s.sendall('0')
+        if CONNECTED_SERVER:
+            print "in take_group_photo()"
+            s.sendall('0')
+        else:
+            print "not connected to server"
 
     GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=1000)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
@@ -164,14 +200,16 @@ def main():
     print "STARTING"
     setup_folders()
     setupPins()
-    testWifi()
-    s = sendIpAddr()
+    s = sendIpAddr() #calls testwifi
     setupTriggers(s)
-
+    print " Done setting triggers "
     while True:
         try:
-            pass
+            time.sleep(10) 
+            #pass
         except:
+            pass
+        finally:
             print "ERROR"
             s.close()
             GPIO.cleanup()
