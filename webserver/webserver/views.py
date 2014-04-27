@@ -5,14 +5,14 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 import socket, thread
 
-config = {};
-ipsToIds = {}
+config = {}
+idsToIps = {}
 HOST = 'unix4.andrew.cmu.edu'   # The remote host
-PORT = 4863                     # The same port as used by the server
+PORT = 4864                     # The same port as used by the server
 SIZE = 1024                     # Receive size of data from server
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def connectToServer(s):
+def connectToServer():
     """ Attempts to connect to server """
     while True:
         try:
@@ -22,9 +22,11 @@ def connectToServer(s):
             time.sleep(5)
         else:
             print "Successfully connected to server!"
-            return
+            break
 
-thread.start_new_thread(connectToServer, (s,))
+    recv_server()
+
+thread.start_new_thread(connectToServer, ())
 
 def home(request):
   global config
@@ -36,9 +38,6 @@ def searchForRasPis(request):
   context = {}
   global config
   print "searching for rasPis here..."
-
-  thread.start_new_thread(recv_server, ())
-
   context['RasPis'] = config
 
   print context
@@ -47,7 +46,8 @@ def searchForRasPis(request):
   return HttpResponse(data, mimetype="application/json", status="200")
 
 def config_handler(request):
-
+  global config, idsToIps
+  print "in config_handler"
   updated_selected = request.POST.getlist('dev_name')
   update_config(updated_selected)
   send_server()
@@ -58,10 +58,10 @@ def config_handler(request):
   
 
 def recv_server():
-    global config,s, ipsToIds
+    global config, idsToIps
     while True:
         data = s.recv(SIZE) 
-        config, ipsToIds = mapSRVRDataToDict(data.strip())
+        config, idsToIps = mapSRVRDataToDict(data)
 
 
 def send_server():
@@ -73,30 +73,29 @@ def send_server():
 ##### HELPERS #####
 
 def mapSRVRDataToDict(input_str):
+  global config, idsToIps
   """ Input has form ip:id for a new raspi at ip 'ip' with id 'id' """
-  global config, ipsToIds
-  newIpsToIds = dict()
+  newIdsToIps = dict()
   new_config = dict()
   inputData = input_str.split(',')
   for s in inputData:
     if not s: continue
-    (ip, _, nickname) = s.partition(':')
+    (nickname, _, ip) = s.partition(':')
     # Add all new Ips and default their configuration to on
-    newIpsToIds[ip] = nickname
-    if ip not in ipsToIds:
-        new_config[ip] = 1
+    newIdsToIps[nickname] = ip
+    if ip not in idsToIps:
+        new_config[nickname] = 1
     else: 
-        new_config[ip] = config[ip]
-
-  return new_config, newIpsToIds
+        new_config[nickname] = config[nickname]
+  print new_config, newIdsToIps
+  return new_config, newIdsToIps
 
 def mapDictToSRVRData(config):
-  global ipsToIds
   res_str = ""
 
-  for ip in config:
-    keyStr = str(ipsToIds[ip])
-    valStr = str(config[ip])
+  for nickname in config:
+    keyStr = str(idsToIps[nickname])
+    valStr = str(config[nickname])
     keyValStr = keyStr + ":" + valStr
 
     res_str += keyValStr + ","
@@ -108,9 +107,8 @@ def mapDictToSRVRData(config):
 
 # changes the config global var
 def update_config(updated_selected):
-  global config
-
-  for k in iter(config):
+  global config, idsToIps
+  for k in config:
     if k in updated_selected:
       config[k] = 1
     else:
