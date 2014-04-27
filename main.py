@@ -63,16 +63,16 @@ def read_socket(s):
 
 def connectToServer(s):
     """ Attempts to connect to server """
-    GPIO.output(output.get('wifiError'), True)
+    GPIO.output(outputPins.get('wifiError'), True)
     while True:
         try:
             s.connect((HOST, PORT))
         except:
             print "Could not connect to server. Will try again in 5 seconds"
             for i in xrange(5):
-                GPIO.output(output.get('wifiError'), False)
+                GPIO.output(outputPins.get('wifiError'), False)
                 time.sleep(0.5)
-                GPIO.output(output.get('wifiError'), True)
+                GPIO.output(outputPins.get('wifiError'), True)
                 time.sleep(0.5)
         else:
             CONNECTED_SERVER = True
@@ -99,9 +99,9 @@ def testWifi(s):
         except urllib2.URLError:
             print "Not Connected"
             for i in xrange(5):
-                GPIO.output(output.get('wifiError'), False)
+                GPIO.output(outputPins.get('wifiError'), False)
                 time.sleep(0.5)
-                GPIO.output(output.get('wifiError'), True)
+                GPIO.output(outputPins.get('wifiError'), True)
                 time.sleep(0.5)
         else:
             print "Connected"
