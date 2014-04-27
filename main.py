@@ -203,17 +203,19 @@ def main():
     s = sendIpAddr() #calls testwifi
     setupTriggers(s)
     print " Done setting triggers "
-    while True:
-        try:
-            time.sleep(10) 
-            #pass
-        except:
+    
+    try:
+        while True:
+            time.sleep(5)
             pass
-        finally:
-            print "ERROR"
-            s.close()
-            GPIO.cleanup()
-            exit(1)
+        #pass
+    except:
+        pass
+    finally:
+        print "ERROR"
+        s.close()
+        GPIO.cleanup()
+        exit(1)
 
 if __name__ == "__main__":
     main()
