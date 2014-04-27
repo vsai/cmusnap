@@ -150,12 +150,13 @@ def setupTriggers(s):
         print "in take_group_photo()"
         s.sendall('0')
 
-    GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=100)
+    GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=1000)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
-    GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=100)
+    GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=1000)
     pass
 
 def setup_folders():
+    #creates image directory if not ready
     if not os.path.exists(root_dir):
         os.mkdir(root_dir)
 
