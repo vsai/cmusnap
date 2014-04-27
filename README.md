@@ -12,8 +12,8 @@ Project Description:
 This project involves building a glove that allows you to take photos simply by making the symbolic picture sign, by connecting each thumb to the opposite hand's index finger. Also, with different modes, you can select picture mode, video modes, and even activate other cameras in the nearby area.
 
 To run the whole system:
-1. Run the java distributed server on "unix4.andrew.cmu.edu"
-    i. ssh vhd@unix4.andrew.cmu.edu
+1. Run the java distributed server on "unix4.andrew.cmu.edu" with port 4863
+    i. ssh <andrew_id>@unix4.andrew.cmu.edu
     ii. cd <folder_containing_server>/
     iii. javac Server.java
     iv. java Server
@@ -26,9 +26,8 @@ To run the whole system:
     v. Connect to power
 
 
-
 To configure Server:
-1. Make sure configured to run on port 5000
+1. Make sure configured to run on port 4863
 
 
 To configure Raspberry Pi:

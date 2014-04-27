@@ -61,7 +61,7 @@ def recv_server():
     global config,s, ipsToIds
     while True:
         data = s.recv(SIZE) 
-        config, ipsToIds = mapSRVRDataToDict(data)
+        config, ipsToIds = mapSRVRDataToDict(data.strip())
 
 
 def send_server():
@@ -79,6 +79,7 @@ def mapSRVRDataToDict(input_str):
   new_config = dict()
   inputData = input_str.split(',')
   for s in inputData:
+    if not s: continue
     (ip, _, nickname) = s.partition(':')
     # Add all new Ips and default their configuration to on
     newIpsToIds[ip] = nickname

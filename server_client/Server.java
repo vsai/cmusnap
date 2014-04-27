@@ -21,24 +21,12 @@ public class Server implements Runnable {
         s.run();
     }
     
-    private void pushToWebClient(PrintWriter p) throws IOException {
-        String ip;
-        String toWrite = "";
-        for (int nickname : this.nicknames.keySet()) {
-            ip = this.nicknames.get(nickname).getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
-            toWrite += ip + ":" + String.valueOf(nickname) + ",";
-        }
-        toWrite = toWrite.substring(0, toWrite.length() - 1);
-    	p.print(toWrite);
-    	p.flush();
-    }
     
     @Override
     public void run() {
         final ServerSocket serverSocket;
         Socket webClient, newClient;
-        PrintWriter p;
-        ClientData d = new ClientData(nicknames, active);
+        ClientData d;
         int count = 0;
 
         // Open a server socket
@@ -55,7 +43,8 @@ public class Server implements Runnable {
             System.err.println("Server waiting for webserver connection...");
         	webClient = serverSocket.accept();
             System.err.println("Server received incoming connection from " + webClient.getInetAddress().toString());
-            p = new PrintWriter(webClient.getOutputStream());
+            //p = new PrintWriter(webClient.getOutputStream());
+            d = new ClientData(nicknames, active, webClient);
             new Thread(new WebServerThread(webClient, d)).start();
         } catch (IOException e) {
             e.printStackTrace();
@@ -75,15 +64,8 @@ public class Server implements Runnable {
                 break;
             }
             
-            // Add client to data
+            // Add client to data and send a message to webClient
             d.addSocket(count, newClient);
-            
-            // Send message to web client with all RaspiIp:nickname
-            try {
-				this.pushToWebClient(p);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
             
             new Thread(new WriterThread(count, d)).start();
             new Thread(new ReaderThread(count, d)).start();
@@ -95,21 +77,46 @@ public class Server implements Runnable {
         class ClientData {
             final ConcurrentHashMap<Integer, Socket> nicknames;
             final ConcurrentHashMap<Integer, Socket> active;
+            final Socket webClient;
+            PrintWriter p;
             
             ClientData(ConcurrentHashMap<Integer, Socket> nicknames,
-                       ConcurrentHashMap<Integer, Socket> active) {
+                       ConcurrentHashMap<Integer, Socket> active,
+                       Socket webClient) {
                 this.nicknames = nicknames;
                 this.active = active;
+                this.webClient = webClient;
+                try {
+                    this.p = new PrintWriter(webClient.getOutputStream());
+                } catch (IOException e) {
+                    this.p = null;
+                    return;
+                }
+            }
+            
+            private void pushToWebClient() {
+                    String ip;
+                    String toWrite = "";
+                    for (int nickname : this.nicknames.keySet()) {
+                        ip = this.nicknames.get(nickname).getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
+                        toWrite += ip + ":" + String.valueOf(nickname) + ",";
+                    }
+                    if (toWrite.length() > 0) 
+                        toWrite = toWrite.substring(0, toWrite.length() - 1);
+                    p.print(toWrite + '\n');
+                    p.flush();
             }
 
             void addSocket(int count, Socket s) {
             	nicknames.put(count, s);
             	active.put(count, s);
+                pushToWebClient();
             }
             
             void deleteSocket(int s) {
                 this.nicknames.remove(s);
                 this.active.remove(s);
+                pushToWebClient();
             }
         }
         
