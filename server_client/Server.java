@@ -1,8 +1,11 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -11,38 +14,37 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Server implements Runnable {   
     final ConcurrentHashMap<Integer, Socket> nicknames = new ConcurrentHashMap<Integer, Socket>();
     final ConcurrentHashMap<Integer, Socket> active = new ConcurrentHashMap<Integer, Socket>();
-    private final int port = 5000;
+    private final int port = 4863;
+    private final int webPort = 4864;
+
     
     public static void main(String[] args) {
         Server s = new Server();
         s.run();
     }
     
+    
     @Override
     public void run() {
-        final ServerSocket serverSocket;
-        Socket newClient;
-        ClientData d = new ClientData(nicknames, active);
+        final ServerSocket serverSocket, webServerSocket;
+        Socket webClient = null;
+        Socket newClient = null;
+        final ClientData d = new ClientData(nicknames, active) ;
         int count = 0;
 
-        // Open a server socket
+        // Open a server socket for the webserver and for the clients
         try {
+            webServerSocket = new ServerSocket(webPort);
             serverSocket = new ServerSocket(port);
         } catch (IOException e) {
-            System.err.println("Could not open server socket on port: " + port);
+            System.err.println("Could not open server socket.");
             e.printStackTrace();
             return;
         }
+        
 
-        //First accept a connection from the web server to communicate about active clients
-        try {
-            System.err.println("Server waiting for webserver connection...");
-            newClient = serverSocket.accept();
-            System.err.println("Server received incoming connection from " + newClient.getInetAddress().toString());
-            new Thread(new WebServerThread(newClient, d)).start();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        //Asynchronously accept a connection from the web server to communicate about active clients
+        new Thread(new WebConnectThread(webServerSocket, webClient, d)).start();
         
         // Keep accepting and serving clients 
         while (true) {
@@ -57,8 +59,9 @@ public class Server implements Runnable {
                 break;
             }
             
-            // Add client to data
+            // Add client to data and notify webserver (if it exists)
             d.addSocket(count, newClient);
+            
             new Thread(new WriterThread(count, d)).start();
             new Thread(new ReaderThread(count, d)).start();
             count += 1;
@@ -69,24 +72,88 @@ public class Server implements Runnable {
         class ClientData {
             final ConcurrentHashMap<Integer, Socket> nicknames;
             final ConcurrentHashMap<Integer, Socket> active;
+            Socket webClient;
+            boolean hasWeb;
+            PrintWriter p;
             
             ClientData(ConcurrentHashMap<Integer, Socket> nicknames,
-                       ConcurrentHashMap<Integer, Socket> active) {
-                this.nicknames = nicknames;
-                this.active = active;
+                    ConcurrentHashMap<Integer, Socket> active) {
+                 this.nicknames = nicknames;
+                 this.active = active;
+                 this.webClient = null;
+                 this.p = null;
+                 this.hasWeb = false;
+            }
+                        
+            private void addWeb(Socket webClient) {
+                this.webClient = webClient;               
+                this.hasWeb = true;
+                try {
+                    this.p = new PrintWriter(webClient.getOutputStream());
+                } catch (IOException e) {
+                    this.p = null;
+                    return;
+                }   
+                pushToWebServer(); // Push starting set of data to webserver
+            }
+            
+            private void pushToWebServer() {
+                    String ip;
+                    String toWrite = "";
+                    for (int nickname : this.nicknames.keySet()) {
+                        ip = this.nicknames.get(nickname).getInetAddress().toString().substring(1); // omits '/' at the beginning of ip
+                        toWrite += String.valueOf(nickname) + ":" + ip + ",";
+                    }
+                    if (toWrite.length() > 0) 
+                        toWrite = toWrite.substring(0, toWrite.length() - 1);
+                    p.print(toWrite);
+                    p.flush();
             }
 
             void addSocket(int count, Socket s) {
                 nicknames.put(count, s);
                 active.put(count, s);
+                if (this.hasWeb)
+                    pushToWebServer();
             }
             
             void deleteSocket(int s) {
                 this.nicknames.remove(s);
                 this.active.remove(s);
+                if (this.hasWeb)
+                    pushToWebServer();
             }
         }
         
+        
+        class WebConnectThread implements Runnable {
+            private ServerSocket serverSocket;
+            private Socket client;
+            private ClientData d;
+
+            WebConnectThread(ServerSocket webServerSocket, Socket webClient, ClientData d) {
+                this.serverSocket = webServerSocket;
+                this.client = webClient;
+                this.d = d;
+            }
+            
+            @Override
+            public void run() {
+                System.err.println("Server waiting for webserver connection...");
+                try {
+                    this.client = this.serverSocket.accept();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                System.err.println("Server received incoming web connection from " + this.client.getInetAddress().toString());
+                this.d.addWeb(client);
+                new Thread(new WebServerThread(this.client, d)).start();
+            }
+            
+            
+        }
+        
+        // Thread that communicates with the WebServer
         class WebServerThread implements Runnable {
             private Socket socket;
             private ClientData data;
@@ -107,6 +174,7 @@ public class Server implements Runnable {
                     e1.printStackTrace();
                 }
                 
+                // Listens to webserver to determine which clients to turn on and off and makes those changes 
                 while (true) {
                     try {
                         // Read list of active clients from web server
@@ -115,13 +183,11 @@ public class Server implements Runnable {
                         String[] subpieces;
                         int nickname;
                         boolean value;
-                        // Update active set (for valid client nicknames provided
+                        // Update active set (for valid client nicknames provided)
                         for (String piece : pieces) {
                             subpieces = piece.split(":", 2);
                             nickname = Integer.valueOf(subpieces[0]);
                             value = (Integer.valueOf(subpieces[1]) > 0) ? true : false;
-                            System.err.println("Nickname: " + nickname + "Value: " + value);
-                            System.err.println(this.data.nicknames.toString());
                             if (this.data.nicknames.containsKey(nickname)) {
                                 if (value) 
                                     this.data.active.put(nickname, this.data.nicknames.get(nickname));
@@ -209,16 +275,25 @@ public class Server implements Runnable {
                     try {
                         in = this.s.getInputStream();
                         command = in.read(); // get input signal from raspi
-
                         if (command == -1) {
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
-                        else if (!this.data.active.containsKey(this.nickname)) {
+                        /*else if (command == '2') {
+                            if (this.data.active.containsKey(nickname)) {
+                                System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
+                                this.data.active.remove(nickname);
+                            }
+                            else {
+                                System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
+                                this.data.active.put(nickname, s);
+                            }
+                        }*/
+                        else if (!this.data.active.containsKey(nickname)) {
                             continue;
                         }
                         else if (!((command == '0') || (command == '1'))) {
-                            System.err.println("Invalid command " + command);
+                            //System.err.println("Invalid command " + command);
                             continue;
                         }
                         else {

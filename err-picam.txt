@@ -4,17 +4,6 @@ TODO:
 
 
 
-
-mmal_vc_port_enable
-failed to enable port vc.ril.video_encode: EINVAL
-mmal_port_enable
-failed to enable connected port
-mmal_connection_enable
-output port couldn't be enabled
-
-
-
-
 sudmmal: mmal_vc_component_enable: failed to enable component: ENOSPC
 Traceback (most recent call last):
     File "/home/pi/snap/scripts/main.py", line 44, in <module>
@@ -26,3 +15,75 @@ Traceback (most recent call last):
     File "/usr/lib/python2.7/dist-packages/picamera/exc.py", line 112, in mmal_check
         raise PiCameraMMALError(status, prefix)
 picamera.exc.PiCameraMMALError: Camera component couldn't be enabled: Out of resources (other than memory)
+
+
+
+___ERRORS THAT HAPPEN THAT CAUSE THE PROGRAM TO EXIT:
+
+CONNECTION ERRORS:
+Connected
+Traceback
+    File "./main.py", line 180, in <module>
+        main()
+                    line 167, in main
+        s = sendIpAddr()
+                    line 60, in sendIpAddr
+        s.connect((HOST, PORT))
+    File "/usr/lib/python2.7/socket.py", line 224, in meth
+        return getattr(self._sock,name)(*args)
+socket.error: [Errno 111] Connection refused
+
+
+
+
+
+
+___ERRORS THAT HAPPEN THAT DOES NOT CAUSE THE PROGRAM TO EXIT BUT HANGS THE SYSTEM REQUIRING A REBOOT:
+
+VID ERRS:
+1)
+mmal: mmal_vc_port_enable: failed to enable port vc.ril.video_encode:in:0(I420): EINVAL
+mmal: mmal_port_enable: failed to enable connected port (vc.ril.video_encode:in0(I420))0x10d1080 (EINVAL)
+mmal: mmal_connection_enable: output port couldn't be enabled
+
+2)
+
+
+
+___ERRORS THAT HAPPEN BUT THAT DOES NOT CAUSE THE PROGRAM TO EXIT OR SEEM TO HAVE ANY LASTING EFFECT:
+
+
+PHOTO ERRS:
+1)
+mmal: mmal_port_connect: port 0x17112c0 is already connected
+mmal: mmal_connection_create: connection could not be made
+Traceback (most recent call last):
+    File "./main.py", line 127 in take_photo
+        result = camera.capture(filename)
+    File "/usr/lib/python2.7/dist-packages/picamera/encoders.py", line 122, in __init__
+        self._create_connection()
+    File "/usr/lib/python2.7/dist-packages/picamera/encoders.py", in lin 220, in _create_connection
+        self.input_port, self.encoders[0].input([0])
+    File "usr/lib/python2.7/dist-packages/picamera/camera.py", line 443, in _connect_ports
+        prefix="Failed to create connection")
+    File "/usr/lib/python2.7/dist-packages/picamera/exc.py", line 112, in mmal_check
+        raise PiCameraMMALError(status, prefix)
+picamera.exc.PiCameraMMALError: Failed to create connection: Port is already connected
+
+2)
+mmal: mmal_vc_port_parameter_set: failed to set port parameter 64:3:EINVAL
+Traceback (most recent call last):
+    File "./main.py", line 127, in take_photo
+        result = camera.capture(filename)
+    File "usr/lib/python/dist-packages/picamera/camera.py", line 1051, in capture
+        self, camera_port, output_port, format, resize, **options)
+    File "/usr/lib/python2.7/dist-packages/picamera/encoders.py", line 120, in __init__
+        self._create_encoder(**options)
+    File "/usr/lib/python2.7/dist-packages/picamera/encoders.py", line 634, in _create_encoder
+        prefix="Failed to set raw capture")
+    File "/usr/lib/python2.7/dist-packages/picamera/exc.py", line 112, in mmal_check
+        raise PiCameraMMALError(status, prefix)
+picamera.exc.PiCameraMMALError: Failed to set raw capture: Argument is invalid
+
+
+

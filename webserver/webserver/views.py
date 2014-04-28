@@ -5,12 +5,32 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 import socket, thread
 
-config = {}; 
+config = {}
+idsToIps = {}
+HOST = 'unix4.andrew.cmu.edu'   # The remote host
+PORT = 4864                     # The same port as used by the server
+SIZE = 1024                     # Receive size of data from server
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+def connectToServer():
+    """ Attempts to connect to server """
+    while True:
+        try:
+            s.connect((HOST, PORT))
+        except:
+            print "Could not connect to server. Will try again in 5 seconds"
+            time.sleep(5)
+        else:
+            print "Successfully connected to server!"
+            break
+
+    recv_server()
+
+thread.start_new_thread(connectToServer, ())
 
 def home(request):
   global config
   context = {}
-  config = recv_server()
   context['RasPis'] = config
   return render(request, "index.html", context)
 
@@ -18,9 +38,6 @@ def searchForRasPis(request):
   context = {}
   global config
   print "searching for rasPis here..."
-
-  thread.start_new_thread(recv_server, ())
-
   context['RasPis'] = config
 
   print context
@@ -29,7 +46,8 @@ def searchForRasPis(request):
   return HttpResponse(data, mimetype="application/json", status="200")
 
 def config_handler(request):
-
+  global config, idsToIps
+  print "in config_handler"
   updated_selected = request.POST.getlist('dev_name')
   update_config(updated_selected)
   send_server()
@@ -40,52 +58,44 @@ def config_handler(request):
   
 
 def recv_server():
-  # TODO: THIS NEEDS TO BE FIXED TO ACTUAL CODE
-
-  # global IP_addresses
-  # print "called recv_server"
-  # host = 'localhost' #change this to the correct IP address of server
-  # port = 50000 
-  # size = 1024 
-  # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-  # s.connect((host,port)) 
-  # data = s.recv(size) 
-  # s.close() 
-  # IP_addresses = data.split(',')
-
-  global config
-  recv_data = "0:1,1:0,2:0,3:1,5:0"
-  config = mapSRVRDataToDict(recv_data)
-  print "-->"
+    global config, idsToIps
+    while True:
+        data = s.recv(SIZE) 
+        config, idsToIps = mapSRVRDataToDict(data)
 
 
 def send_server():
-  global config
-  print "trying to send server!!", mapDictToSRVRData(config)
-
-
-
+    global config
+    toSend = mapDictToSRVRData(config)
+    s.sendall(toSend) 
 
 
 ##### HELPERS #####
 
 def mapSRVRDataToDict(input_str):
-  res = {}
-  data_array = input_str.split(',')
-  for i in range(0,len(data_array)):
-    item_info = data_array[i].split(':')
-    item_name = item_info[0]
-    item_config = item_info[1]
-    res[item_name] = item_config
-
-  return res
+  global config, idsToIps
+  """ Input has form ip:id for a new raspi at ip 'ip' with id 'id' """
+  newIdsToIps = dict()
+  new_config = dict()
+  inputData = input_str.split(',')
+  for s in inputData:
+    if not s: continue
+    (nickname, _, ip) = s.partition(':')
+    # Add all new Ips and default their configuration to on
+    newIdsToIps[nickname] = ip
+    if ip not in idsToIps:
+        new_config[nickname] = 1
+    else: 
+        new_config[nickname] = config[nickname]
+  print new_config, newIdsToIps
+  return new_config, newIdsToIps
 
 def mapDictToSRVRData(config):
   res_str = ""
 
-  for k in iter(config):
-    keyStr = str(k)
-    valStr = str(config[k])
+  for nickname in config:
+    keyStr = str(nickname)
+    valStr = str(config[nickname])
     keyValStr = keyStr + ":" + valStr
 
     res_str += keyValStr + ","
@@ -93,35 +103,14 @@ def mapDictToSRVRData(config):
   # remove the last comma to fit spec
   res_str = res_str[:-1]
 
-  return res_str
-
-
-
-
-
+  return (res_str + '\n')
 
 # changes the config global var
 def update_config(updated_selected):
-  global config
-
-  for k in iter(config):
+  global config, idsToIps
+  for k in config:
     if k in updated_selected:
       config[k] = 1
     else:
       config[k] = 0
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
 
