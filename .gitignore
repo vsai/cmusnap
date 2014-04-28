@@ -1,4 +1,8 @@
 configs.py
 .metadata/*
 DistributedEnv/*
+<<<<<<< HEAD
 server_client/Server\$*
+=======
+*.h264
+>>>>>>> 5bd31cf6c5cbd72a3fe85309f23b4921afa1992b

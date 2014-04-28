@@ -204,7 +204,7 @@ def main():
     s = sendIpAddr() #calls testwifi
     setupTriggers(s)
     print " Done setting triggers "
-    
+    GPIO.
     try:
         while True:
             time.sleep(5)
