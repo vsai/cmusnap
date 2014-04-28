@@ -96,6 +96,12 @@ public class Server implements Runnable {
                 }   
                 pushToWebServer(); // Push starting set of data to webserver
             }
+
+            private void disableWeb(Socket webClient) {
+                this.webClient = null;
+                this.hasWeb = false;
+                this.p = null;
+            }
             
             private void pushToWebServer() {
                     String ip;
@@ -127,9 +133,9 @@ public class Server implements Runnable {
         
         
         class WebConnectThread implements Runnable {
-            private ServerSocket serverSocket;
-            private Socket client;
-            private ClientData d;
+            ServerSocket serverSocket;
+            Socket client;
+            ClientData d;
 
             WebConnectThread(ServerSocket webServerSocket, Socket webClient, ClientData d) {
                 this.serverSocket = webServerSocket;
@@ -147,7 +153,7 @@ public class Server implements Runnable {
                 }
                 System.err.println("Server received incoming web connection from " + this.client.getInetAddress().toString());
                 this.d.addWeb(client);
-                new Thread(new WebServerThread(this.client, d)).start();
+                new Thread(new WebServerThread(this)).start();
             }
             
             
@@ -157,10 +163,12 @@ public class Server implements Runnable {
         class WebServerThread implements Runnable {
             private Socket socket;
             private ClientData data;
+            private ServerSocket serverSocket;
             
-            public WebServerThread(Socket s, ClientData d) {
-                this.socket = s;
-                this.data = d;
+            public WebServerThread(WebConnectThread w) {
+                this.socket = w.client;
+                this.data = w.d;
+                this.serverSocket = w.serverSocket;
             }
             
             @Override
@@ -179,6 +187,9 @@ public class Server implements Runnable {
                     try {
                         // Read list of active clients from web server
                         s = inFromClient.readLine();
+                        if (s == null) { // broken socket
+                            throw new SocketException();
+                        }
                         String[] pieces = s.split(",");
                         String[] subpieces;
                         int nickname;
@@ -195,8 +206,12 @@ public class Server implements Runnable {
                                     this.data.active.remove(nickname);
                             }
                         }
-                    } catch (IOException e) {
+                    } catch (SocketException e) {
                         e.printStackTrace();
+                        // Disable webserver connectivity
+                        this.data.disableWeb(this.socket);
+                        // Attempt to reconnect with webserver
+                        new Thread(new WebConnectThread(serverSocket, socket, data)).start();
                         return;
                     } catch (Exception e) {
                         e.printStackTrace();
