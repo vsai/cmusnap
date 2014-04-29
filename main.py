@@ -35,6 +35,8 @@ inputPins = {'takePhoto' : 11, 'takeVideo' : 12, 'takeLivestream' : 7, 'takeGrou
 HOST = 'unix4.andrew.cmu.edu'
 PORT = 4863
 root_dir = "../img/"
+vid_filename = ""
+vid_keyname = ""
 ##End configurations
 ########
 
@@ -61,10 +63,19 @@ def read_socket(s):
         data = s.recv(1024)
         if not data:
             break
-        if (data == '0'):
-            take_photo(99, distributed=True)
-        elif (data == '1'):
-       take_video1(1, distribued=True)
+        if (len(data) < 6):
+            #malformed input
+            continue
+        else:
+            #better formed input string
+            dowhat = data[0:5].lower()
+            if (dowhat == "photo"):
+                take_photo(99, distributed=True, prefix=data[5:])
+            elif (dowhat == "video"):
+                take_video1(1, distributed=True, prefix=data[5:])
+            else:
+                #malformed input
+                continue
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     testWifi(s)
 
@@ -147,9 +158,12 @@ def setupPins():
         print "EXITING PROGRAM"
         exit(1)
 
-def generate_filename(extension):
+def generate_filename(extension, prefix=None):
+    #prefix is of type string
     base_filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M-%S')
     filename = base_filename + "." + extension
+    if prefix:
+        filename = prefix + "_" + filename
     return (os.path.join(root_dir, filename), filename)
 
 def upload_file_aws(filename, keyname):
@@ -159,49 +173,51 @@ def upload_file_aws(filename, keyname):
     k.key = keyname
     k.set_contents_from_filename(filename)
 
-def take_photo(channel, distributed=False):
+def take_photo(channel, distributed=False, prefix="yolo"):
     if distributed:
         print "thanks to distributed server"
-    if (channel != 99 and camera_lock.locked()):
+    if (not distributed and camera_lock.locked()):
         #if not from distributed server and camera is being used, ignore take_photo
         #ALWAYS ACCEPT REQUESTS from DISTRIBUTED SERVER
-	return
-        #break
+	    return
+    
     camera_lock.acquire()
     print "in take_photo()"
-    (filename, keyname) = generate_filename("jpg")
+    if (prefix != "yolo"):
+        (filename, keyname) = generate_filename("jpg")
+    else:
+        (filename, keyname) = generate_filename("jpg", prefix=prefix)
     GPIO.output(outputPins.get('takePhoto'), True)
     result = camera.capture(filename)
-    time.sleep(1)
+    time.sleep(0.5)
     camera_lock.release()
     upload_file_aws(filename, keyname)
     GPIO.output(outputPins.get('takePhoto'), False)
 
 
-def take_video(channel, distributed=False):
+def take_video(channel, distributed=False, prefix="swag"):
+    global vid_filename, vid_keyname
     print "IN TAKE_VIDEO - function activated"
     if distributed:
         print "video - thanks to distributed server"
         print "not supported yet"
         return
-	#break
 
     if GPIO.input(channel):
         print "IN GPIO INPUT CHANNEL"
         if (camera_lock.locked()):
             print "CAMERA_LOCKED"
             return
-            #break
         camera_lock.acquire()
         print "ACQUIRING CAMERA LOCK"
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
-        (filename, keyname) = generate_filename("h264")
+        (vid_filename, vid_keyname) = generate_filename("h264")
         camera.start_recording(filename)
     else:
         if (not camera_lock.locked()):
             return
-            #break
+        
         print "in take_video() - falling edge"
         GPIO.output(outputPins.get('takeVideo'), False)
         camera.stop_recording()
@@ -219,8 +235,6 @@ def setupTriggers(s):
 
     GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=1000)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
-    print "Setup takeVideo on pin: %d"%(inputPins.get('takeVideo'))
-    print take_video
     GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=1000)
     pass
 
@@ -241,7 +255,6 @@ def main():
         while True:
             time.sleep(5)
             pass
-        #pass
     except:
         pass
     finally:
