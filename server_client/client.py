@@ -5,6 +5,7 @@ import socket, thread
 def read_socket(s):
     while (True):
         data = s.recv(1024)
+        print "Data is %s" % data
         if (data == '0'):
             photo_handler()
         elif (data == '1'):
@@ -20,7 +21,7 @@ def video_handler():
 
 
 HOST = 'unix4.andrew.cmu.edu'   # The remote host
-PORT = 4863                     # The same port as used by the server
+PORT = 4865                     # The same port as used by the server
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST, PORT))
@@ -28,7 +29,7 @@ thread.start_new_thread(read_socket, (s,))
 
 while (True):
     var = raw_input()
-    if (var == '0' or var == '1' or var == '2'):
-        s.sendall(var) 
+    if (var == 'Photo' or var == 'Video'):
+        s.sendall(var + '\n') 
 
 s.close()

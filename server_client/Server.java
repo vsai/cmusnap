@@ -1,10 +1,7 @@
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -14,9 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Server implements Runnable {   
     final ConcurrentHashMap<Integer, Socket> nicknames = new ConcurrentHashMap<Integer, Socket>();
     final ConcurrentHashMap<Integer, Socket> active = new ConcurrentHashMap<Integer, Socket>();
-    private final int port = 4863;
-    private final int webPort = 4864;
-
+    final ConcurrentHashMap<Integer, PrintWriter> writers = new ConcurrentHashMap<Integer, PrintWriter>();
+    private final int port = 4865;
+    private final int webPort = 4866;
+    static int groupId = 0;
     
     public static void main(String[] args) {
         Server s = new Server();
@@ -29,7 +27,7 @@ public class Server implements Runnable {
         final ServerSocket serverSocket, webServerSocket;
         Socket webClient = null;
         Socket newClient = null;
-        final ClientData d = new ClientData(nicknames, active) ;
+        final ClientData d = new ClientData(nicknames, active, writers);
         int count = 0;
 
         // Open a server socket for the webserver and for the clients
@@ -72,17 +70,21 @@ public class Server implements Runnable {
         class ClientData {
             final ConcurrentHashMap<Integer, Socket> nicknames;
             final ConcurrentHashMap<Integer, Socket> active;
+            final ConcurrentHashMap<Integer, PrintWriter> writers;
+
             Socket webClient;
             boolean hasWeb;
             PrintWriter p;
             
             ClientData(ConcurrentHashMap<Integer, Socket> nicknames,
-                    ConcurrentHashMap<Integer, Socket> active) {
+                    ConcurrentHashMap<Integer, Socket> active,
+                    ConcurrentHashMap<Integer, PrintWriter> writers) {
                  this.nicknames = nicknames;
                  this.active = active;
                  this.webClient = null;
                  this.p = null;
                  this.hasWeb = false;
+                 this.writers = writers;
             }
                         
             private void addWeb(Socket webClient) {
@@ -117,6 +119,12 @@ public class Server implements Runnable {
             }
 
             void addSocket(int count, Socket s) {
+                try {
+                    writers.put(count, new PrintWriter(s.getOutputStream()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return;
+                }
                 nicknames.put(count, s);
                 active.put(count, s);
                 if (this.hasWeb)
@@ -126,6 +134,8 @@ public class Server implements Runnable {
             void deleteSocket(int s) {
                 this.nicknames.remove(s);
                 this.active.remove(s);
+                writers.get(s).close();
+                writers.remove(s);
                 if (this.hasWeb)
                     pushToWebServer();
             }
@@ -237,30 +247,21 @@ public class Server implements Runnable {
 
             @Override
             public void run() {
-                int command;
-                OutputStream out;
+                String command;
+                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                PrintWriter p;
+                String groupId; 
                 while (true) {
                     try {
                         //Read from stdin
-                        command = System.in.read();
-                        if (command == -1) {
-                            System.err.println("Socket broken, terminating connection.");
-                            throw new SocketException();
-                        }
-
-                        else if (!((command == '0') || (command == '1'))) {
-                            System.err.println("Invalid command " + command);
-                            continue;
-                        }
-                        
+                        command = reader.readLine();
+                        groupId = String.valueOf(Server.groupId++); //identifier of this group photo
                         // Write out to all output streams
-                        for (Socket w : this.data.active.values()) {
-                            out = w.getOutputStream();
-                            out.write(command); 
+                        for (int w : this.data.active.keySet()) {
+                            p = this.data.writers.get(w); //print writer
+                            p.print(command + groupId);
+                            p.flush();
                         }
-                    } catch (SocketException socketE) {
-                        this.data.deleteSocket(nickname);
-                        return;
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -283,42 +284,37 @@ public class Server implements Runnable {
 
             @Override
             public void run() {
-                InputStream in;
+                BufferedReader reader;
+				try {
+					reader = new BufferedReader(new InputStreamReader(this.s.getInputStream()));
+				} catch (IOException e1) {
+					e1.printStackTrace();
+					return;
+				}
                 OutputStream out;
-                int command;
+                PrintWriter p;
+                String command;
+                String groupId;
                 while (true) {
                     try {
-                        in = this.s.getInputStream();
-                        command = in.read(); // get input signal from raspi
-                        if (command == -1) {
+                        command = reader.readLine(); // get input string from raspi
+                        if (command == null) { // broken socket
                             System.err.println("Socket broken, terminating connection.");
                             throw new SocketException();
                         }
-                        /*else if (command == '2') {
-                            if (this.data.active.containsKey(nickname)) {
-                                System.err.println("Removing pi " + nickname + " at " + ip + " from active.");
-                                this.data.active.remove(nickname);
-                            }
-                            else {
-                                System.err.println("Adding pi " + nickname + " at " + ip + "  to active.");
-                                this.data.active.put(nickname, s);
-                            }
-                        }*/
-                        else if (!this.data.active.containsKey(nickname)) {
+                        else if (!this.data.active.containsKey(nickname)) { //inactive raspi, ignore
                             continue;
                         }
-                        else if (!((command == '0') || (command == '1'))) {
-                            //System.err.println("Invalid command " + command);
-                            continue;
+                        else if (!((command.equals("Photo")) || (command.equals("Video")))) {
+                            continue; //invalid command
                         }
-                        else {
-                            System.err.println("Got command " + command + " from pi at " + ip);
-                        }
-                        
+                        System.err.println("Got command " + command + " from pi at " + ip);
+                        groupId = String.valueOf(Server.groupId++);
                         //Write out to all sockets
-                        for (Socket w : this.data.active.values()) {
-                            out = w.getOutputStream();
-                            out.write(command); 
+                        for (int w : this.data.active.keySet()) {
+                            p = this.data.writers.get(w); //print writers
+                            p.print(command + groupId);
+                            p.flush();
                         }
                     } catch (SocketException socketE) {
                         this.data.deleteSocket(nickname);
@@ -331,6 +327,3 @@ public class Server implements Runnable {
             }
         }
 }
-
-
-
