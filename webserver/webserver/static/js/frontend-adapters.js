@@ -34,7 +34,7 @@ function updateTable() {
       } else {
       checkbox = $("<td><input type='checkbox' name='dev_name' value='"+ dev_name +"'></input></td>"); 
       }
-      var dev = $("<td>"+ dev_name +"</td>");
+      var dev = $("<td><p class='lead'>"+ dev_name + "</p></td>");
 
       row.append(checkbox);
       row.append(dev);

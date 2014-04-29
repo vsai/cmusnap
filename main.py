@@ -9,14 +9,15 @@ import socket
 import RPi.GPIO as GPIO
 import picamera
 import thread
+from threading import Lock
 
 import boto
 from boto.s3.connection import S3Connection, Location
 from boto.s3.key import Key
 
 def shutdown():
-	print 'Shutting down Pi'
-	os.system('sudo shutdown -h now')
+    print 'Shutting down Pi'
+    os.system('sudo shutdown -h now')
 
 ########
 ##Configurations
@@ -29,11 +30,13 @@ from configs import *
 
 outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 5, 'cameraError' : 5, 'generalError' : 5}
-inputPins = {'takePhoto' : 11, 'takeVideo' : 13, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
+inputPins = {'takePhoto' : 11, 'takeVideo' : 12, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
 
 HOST = 'unix4.andrew.cmu.edu'
 PORT = 4863
 root_dir = "../img/"
+vid_filename = ""
+vid_keyname = ""
 ##End configurations
 ########
 
@@ -43,11 +46,13 @@ CONNECTED_WIFI = False
 CONNECTED_SERVER = False
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
+camera_lock = Lock()
 try:
-	camera = picamera.PiCamera()
+    camera = picamera.PiCamera()
+    camera.resolution = (640, 480)
 except:
-	print 'Camera not found.'
-	shutdown()
+    print 'Camera not found.'
+    shutdown()
 
 
 ##End Pi Setup
@@ -56,17 +61,36 @@ def read_socket(s):
     """ Attempts to read from server """
     while True:
         data = s.recv(1024)
-        if (data == '0'):
-            take_photo(99)
-        elif (data == '1'):
-            take_video(99)
+        if not data:
+            break
+        if (len(data) < 6):
+            #malformed input
+            continue
+        else:
+            #better formed input string
+            dowhat = data[0:5].lower()
+            if (dowhat == "photo"):
+                take_photo(99, distributed=True, prefix=data[5:])
+            elif (dowhat == "video"):
+                take_video1(1, distributed=True, prefix=data[5:])
+            else:
+                #malformed input
+                continue
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    testWifi(s)
 
 def connectToServer(s):
     """ Attempts to connect to server """
     GPIO.output(outputPins.get('wifiError'), True)
+    global CONNECTED_SERVER
     while True:
         try:
             s.connect((HOST, PORT))
+            CONNECTED_SERVER = True
+            GPIO.output(outputPins.get('wifiError'), False)
+            print "Successfully connected to server!"
+            break
+
         except:
             print "Could not connect to server. Will try again in 5 seconds"
             for i in xrange(5):
@@ -74,12 +98,7 @@ def connectToServer(s):
                 time.sleep(0.5)
                 GPIO.output(outputPins.get('wifiError'), True)
                 time.sleep(0.5)
-        else:
-            CONNECTED_SERVER = True
-            GPIO.output(outputPins.get('wifiError'), False)
-            print "Successfully connected to server!"
-            break
-    
+                
     read_socket(s)
 
 def sendIpAddr():
@@ -139,9 +158,12 @@ def setupPins():
         print "EXITING PROGRAM"
         exit(1)
 
-def generate_filename(extension):
+def generate_filename(extension, prefix=None):
+    #prefix is of type string
     base_filename = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M-%S')
     filename = base_filename + "." + extension
+    if prefix:
+        filename = prefix + "_" + filename
     return (os.path.join(root_dir, filename), filename)
 
 def upload_file_aws(filename, keyname):
@@ -151,31 +173,58 @@ def upload_file_aws(filename, keyname):
     k.key = keyname
     k.set_contents_from_filename(filename)
 
-def take_photo(channel):
-    if (channel == 99):
+def take_photo(channel, distributed=False, prefix="yolo"):
+    if distributed:
         print "thanks to distributed server"
+    if (not distributed and camera_lock.locked()):
+        #if not from distributed server and camera is being used, ignore take_photo
+        #ALWAYS ACCEPT REQUESTS from DISTRIBUTED SERVER
+	    return
+    
+    camera_lock.acquire()
     print "in take_photo()"
-    (filename, keyname) = generate_filename("jpg")
+    if (prefix != "yolo"):
+        (filename, keyname) = generate_filename("jpg")
+    else:
+        (filename, keyname) = generate_filename("jpg", prefix=prefix)
     GPIO.output(outputPins.get('takePhoto'), True)
     result = camera.capture(filename)
-    time.sleep(1)
+    time.sleep(0.5)
+    camera_lock.release()
     upload_file_aws(filename, keyname)
     GPIO.output(outputPins.get('takePhoto'), False)
 
 
-def take_video(channel):
-    if (channel == 99):
-        print "thanks to distributed server"
-        channel = 1 #set to a random channel thats available on GPIO so GPIO.input(channel) doesnt faile
+def take_video(channel, distributed=False, prefix="swag"):
+    global vid_filename, vid_keyname
+    print "IN TAKE_VIDEO - function activated"
+    if distributed:
+        print "video - thanks to distributed server"
+        print "not supported yet"
+        return
+
     if GPIO.input(channel):
+        print "IN GPIO INPUT CHANNEL"
+        if (camera_lock.locked()):
+            print "CAMERA_LOCKED"
+            return
+        camera_lock.acquire()
+        print "ACQUIRING CAMERA LOCK"
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
-        #(filename, heyname) = generate_filename("h264")
-        #camera.start_recording(filename)
+        (vid_filename, vid_keyname) = generate_filename("h264")
+        camera.start_recording(filename)
     else:
+        if (not camera_lock.locked()):
+            return
+        
         print "in take_video() - falling edge"
         GPIO.output(outputPins.get('takeVideo'), False)
-        #camera.stop_recording()
+        camera.stop_recording()
+        upload_file_aws(vid_filename, vid_keyname)
+        vid_filename = ""
+        vid_keyname = ""
+        camera_lock.release()
 
 
 def setupTriggers(s):
@@ -209,11 +258,10 @@ def main():
         while True:
             time.sleep(5)
             pass
-        #pass
     except:
         pass
     finally:
-        print "ERROR"
+        print "ERROR or KEYBOARD EXIT - exiting program"
         s.close()
         GPIO.cleanup()
         exit(1)

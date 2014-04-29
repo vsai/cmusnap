@@ -2,6 +2,8 @@
 <html>
 <head>
 
+	<meta name="viewport" content="width=device-width, intial-scale=1">
+
 	<!-- JQUERY -->
 	<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
 
@@ -18,21 +20,46 @@
 	<title>Basic UI for 549</title>
 </head>
 <body>
+
+<!-- 	<nav class="navbar navbar-default" role="navigation">
+		<div class="navbar-inner">
+			<div class="container-fluid">
+				
+				<div class="navbar-header">
+					<a class="navbar-brand" href="http://bit.ly/549snap"><img src="static/img/snaplogo.png" alt="Snap" width="150"></a>
+					<p class="navbar-text">Remote</p>
+				</div>
+			</div>
+		</div>
+	</nav> -->
+
+
+
+	<nav class="navbar navbar-default">
+		<div class="navbar-header">
+			<div class="navbar-inner">
+				<div class="container">
+					<a href="http://bit.ly/549snap"><img src="static/img/snaplogo.png" alt="Snap" width="80"></a>
+				</div>
+			</div>
+		</div>
+	</nav>
+
 	<div class="container">
 		<div class="well">
 			<div class="row">
-				<h3> Available Devices </h3>
+				<h3 class="text-center"> Remote </h3>
 
 				<div id="devices">
 					<form id="device-form">
 						{% csrf_token %}
-							<div id="form-section">
-							</div>
-						  <div class='btn-group btn-group-lg' id="button-section">
-						  	<button type='button' onclick="update()" class='btn btn-success'>
-						  		Search
-						  	</button>
-						  </div>
+						<div id="form-section">
+						</div>
+						<div class='btn-group btn-group-lg' id="button-section">
+							<button type='button' onclick="update()" class='btn btn-success'>
+								Search
+							</button>
+						</div>
 					</form>
 				</div>
 			</div>

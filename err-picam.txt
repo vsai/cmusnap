@@ -21,7 +21,9 @@ picamera.exc.PiCameraMMALError: Camera component couldn't be enabled: Out of res
 ___ERRORS THAT HAPPEN THAT CAUSE THE PROGRAM TO EXIT:
 
 CONNECTION ERRORS:
-Connected
+
+
+---------->>FIXED BY CONNECTING TO SERVER IN SEPARATE THREAD AND CONSTANTLY CHECKING
 Traceback
     File "./main.py", line 180, in <module>
         main()
@@ -32,7 +34,7 @@ Traceback
     File "/usr/lib/python2.7/socket.py", line 224, in meth
         return getattr(self._sock,name)(*args)
 socket.error: [Errno 111] Connection refused
-
+-------->>>
 
 
 
@@ -41,12 +43,15 @@ socket.error: [Errno 111] Connection refused
 ___ERRORS THAT HAPPEN THAT DOES NOT CAUSE THE PROGRAM TO EXIT BUT HANGS THE SYSTEM REQUIRING A REBOOT:
 
 VID ERRS:
+
+
+-------> FIXED BY SETTING RESOLUTION TO CAMERA
 1)
 mmal: mmal_vc_port_enable: failed to enable port vc.ril.video_encode:in:0(I420): EINVAL
 mmal: mmal_port_enable: failed to enable connected port (vc.ril.video_encode:in0(I420))0x10d1080 (EINVAL)
 mmal: mmal_connection_enable: output port couldn't be enabled
 
-2)
+
 
 
 
@@ -86,4 +91,12 @@ Traceback (most recent call last):
 picamera.exc.PiCameraMMALError: Failed to set raw capture: Argument is invalid
 
 
+
+
+Traceback (most recent call last):
+    File "./newmain.py", line 203, in take_video
+        camera.stop_recording()
+    File "/usr/lib/python2.7/dist-packages/picamera/camera.py", line 841, in stop_recording
+        encoder = self._encoders[splitter_port]
+KeyError: 1
 
