@@ -183,7 +183,7 @@ def take_photo(channel, distributed=False, prefix="yolo"):
     
     camera_lock.acquire()
     print "in take_photo()"
-    if (prefix != "yolo"):
+    if (prefix == "yolo"):
         (filename, keyname) = generate_filename("jpg")
     else:
         (filename, keyname) = generate_filename("jpg", prefix=prefix)
@@ -213,7 +213,7 @@ def take_video(channel, distributed=False, prefix="swag"):
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
         (vid_filename, vid_keyname) = generate_filename("h264")
-        camera.start_recording(filename)
+        camera.start_recording(vid_filename)
     else:
         if (not camera_lock.locked()):
             return
@@ -232,7 +232,7 @@ def setupTriggers(s):
     def take_group_photo(channel):
         if CONNECTED_SERVER:
             print "in take_group_photo()"
-            s.sendall('0')
+            s.sendall('Photo\n')
         else:
             print "not connected to server"
 
