@@ -9,14 +9,15 @@ import socket
 import RPi.GPIO as GPIO
 import picamera
 import thread
+from threading import Lock
 
 import boto
 from boto.s3.connection import S3Connection, Location
 from boto.s3.key import Key
 
 def shutdown():
-	print 'Shutting down Pi'
-	os.system('sudo shutdown -h now')
+    print 'Shutting down Pi'
+    os.system('sudo shutdown -h now')
 
 ########
 ##Configurations
@@ -29,7 +30,7 @@ from configs import *
 
 outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 5, 'cameraError' : 5, 'generalError' : 5}
-inputPins = {'takePhoto' : 11, 'takeVideo' : 13, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
+inputPins = {'takePhoto' : 11, 'takeVideo' : 12, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
 
 HOST = 'unix4.andrew.cmu.edu'
 PORT = 4863
@@ -43,11 +44,13 @@ CONNECTED_WIFI = False
 CONNECTED_SERVER = False
 GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
+camera_lock = Lock()
 try:
-	camera = picamera.PiCamera()
+    camera = picamera.PiCamera()
+    camera.resolution = (640, 480)
 except:
-	print 'Camera not found.'
-	shutdown()
+    print 'Camera not found.'
+    shutdown()
 
 
 ##End Pi Setup
@@ -56,17 +59,27 @@ def read_socket(s):
     """ Attempts to read from server """
     while True:
         data = s.recv(1024)
+        if not data:
+            break
         if (data == '0'):
-            take_photo(99)
+            take_photo(99, distributed=True)
         elif (data == '1'):
-            take_video(99)
+       take_video1(1, distribued=True)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    testWifi(s)
 
 def connectToServer(s):
     """ Attempts to connect to server """
     GPIO.output(outputPins.get('wifiError'), True)
+    global CONNECTED_SERVER
     while True:
         try:
             s.connect((HOST, PORT))
+            CONNECTED_SERVER = True
+            GPIO.output(outputPins.get('wifiError'), False)
+            print "Successfully connected to server!"
+            break
+
         except:
             print "Could not connect to server. Will try again in 5 seconds"
             for i in xrange(5):
@@ -74,12 +87,7 @@ def connectToServer(s):
                 time.sleep(0.5)
                 GPIO.output(outputPins.get('wifiError'), True)
                 time.sleep(0.5)
-        else:
-            CONNECTED_SERVER = True
-            GPIO.output(outputPins.get('wifiError'), False)
-            print "Successfully connected to server!"
-            break
-    
+                
     read_socket(s)
 
 def sendIpAddr():
@@ -151,31 +159,53 @@ def upload_file_aws(filename, keyname):
     k.key = keyname
     k.set_contents_from_filename(filename)
 
-def take_photo(channel):
-    if (channel == 99):
+def take_photo(channel, distributed=False):
+    if distributed:
         print "thanks to distributed server"
+    if (channel != 99 and camera_lock.locked()):
+        #if not from distributed server and camera is being used, ignore take_photo
+        #ALWAYS ACCEPT REQUESTS from DISTRIBUTED SERVER
+	return
+        #break
+    camera_lock.acquire()
     print "in take_photo()"
     (filename, keyname) = generate_filename("jpg")
     GPIO.output(outputPins.get('takePhoto'), True)
     result = camera.capture(filename)
     time.sleep(1)
+    camera_lock.release()
     upload_file_aws(filename, keyname)
     GPIO.output(outputPins.get('takePhoto'), False)
 
 
-def take_video(channel):
-    if (channel == 99):
-        print "thanks to distributed server"
-        channel = 1 #set to a random channel thats available on GPIO so GPIO.input(channel) doesnt faile
+def take_video(channel, distributed=False):
+    print "IN TAKE_VIDEO - function activated"
+    if distributed:
+        print "video - thanks to distributed server"
+        print "not supported yet"
+        return
+	#break
+
     if GPIO.input(channel):
+        print "IN GPIO INPUT CHANNEL"
+        if (camera_lock.locked()):
+            print "CAMERA_LOCKED"
+            return
+            #break
+        camera_lock.acquire()
+        print "ACQUIRING CAMERA LOCK"
         print "in take_video() - rising edge"
         GPIO.output(outputPins.get('takeVideo'), True)
-        #(filename, heyname) = generate_filename("h264")
-        #camera.start_recording(filename)
+        (filename, keyname) = generate_filename("h264")
+        camera.start_recording(filename)
     else:
+        if (not camera_lock.locked()):
+            return
+            #break
         print "in take_video() - falling edge"
         GPIO.output(outputPins.get('takeVideo'), False)
-        #camera.stop_recording()
+        camera.stop_recording()
+        camera_lock.release()
 
 
 def setupTriggers(s):
@@ -189,6 +219,8 @@ def setupTriggers(s):
 
     GPIO.add_event_detect(inputPins.get('takePhoto'), GPIO.RISING, callback=take_photo, bouncetime=1000)
     GPIO.add_event_detect(inputPins.get('takeVideo'), GPIO.BOTH, callback=take_video, bouncetime=100)
+    print "Setup takeVideo on pin: %d"%(inputPins.get('takeVideo'))
+    print take_video
     GPIO.add_event_detect(inputPins.get('takeGroupPhoto'), GPIO.RISING, callback=take_group_photo, bouncetime=1000)
     pass
 
@@ -204,7 +236,7 @@ def main():
     s = sendIpAddr() #calls testwifi
     setupTriggers(s)
     print " Done setting triggers "
-    GPIO.
+    
     try:
         while True:
             time.sleep(5)
@@ -213,7 +245,7 @@ def main():
     except:
         pass
     finally:
-        print "ERROR"
+        print "ERROR or KEYBOARD EXIT - exiting program"
         s.close()
         GPIO.cleanup()
         exit(1)
