@@ -183,7 +183,7 @@ def setupTriggers(s):
     def take_group_photo(channel):
         if CONNECTED_SERVER:
             print "in take_group_photo()"
-            s.sendall('0')
+            s.sendall('Photo' + '\n')
         else:
             print "not connected to server"
 
