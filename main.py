@@ -221,6 +221,9 @@ def take_video(channel, distributed=False, prefix="swag"):
         print "in take_video() - falling edge"
         GPIO.output(outputPins.get('takeVideo'), False)
         camera.stop_recording()
+        upload_file_aws(vid_filename, vid_keyname)
+        vid_filename = ""
+        vid_keyname = ""
         camera_lock.release()
 
 
