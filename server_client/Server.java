@@ -12,8 +12,8 @@ public class Server implements Runnable {
     final ConcurrentHashMap<Integer, Socket> nicknames = new ConcurrentHashMap<Integer, Socket>();
     final ConcurrentHashMap<Integer, Socket> active = new ConcurrentHashMap<Integer, Socket>();
     final ConcurrentHashMap<Integer, PrintWriter> writers = new ConcurrentHashMap<Integer, PrintWriter>();
-    private final int port = 4865;
-    private final int webPort = 4866;
+    private final int port = 4863;
+    private final int webPort = 4864;
     static int groupId = 0;
     
     public static void main(String[] args) {
