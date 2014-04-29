@@ -30,7 +30,7 @@ from configs import *
 
 outputPins = {'takePhoto' : 3, 'takeVideo' : 3, 'takeLivestream' : 3, \
                 'wifiError' : 5, 'cameraError' : 5, 'generalError' : 5}
-inputPins = {'takePhoto' : 11, 'takeVideo' : 12, 'takeLivestream' : 7, 'takeGroupPhoto' : 15}
+inputPins = {'takePhoto' : 11, 'takeVideo' : 7, 'takeGroupPhoto' : 15}
 
 HOST = 'unix4.andrew.cmu.edu'
 PORT = 4863
