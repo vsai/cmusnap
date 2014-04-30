@@ -69,12 +69,15 @@ def recv_server():
     while True:
         data = s.recv(SIZE) 
         print "here"
-        if data.startswith('Done'):
-          groupID = data[4:]
-          print "Attempting to pull %s pics from AWS" % groupID
-          thread.start_new_thread(pullFromAWS, (groupID,))
-        else:
-          config, idsToIps = mapSRVRDataToDict(data)
+        #if data.startswith('Done'):
+        #  groupID = data[4:]
+        #  print "Attempting to pull %s pics from AWS" % groupID
+        #  thread.start_new_thread(pullFromAWS, (groupID,))
+        #else:
+        #  config, idsToIps = mapSRVRDataToDict(data)
+        if not data:
+            break
+        config, idsToIps = mapSRVRDataToDict(data)
 
 
 def send_server():
@@ -82,9 +85,7 @@ def send_server():
     toSend = mapDictToSRVRData(config)
     s.sendall(toSend) 
 
-
 ##### HELPERS #####
-
 
 def handleImages():
   photo_handler.pullFromAWS("1")
