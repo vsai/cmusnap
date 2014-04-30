@@ -192,6 +192,8 @@ def take_photo(channel, distributed=False, prefix="yolo"):
     time.sleep(0.5)
     camera_lock.release()
     upload_file_aws(filename, keyname)
+    if distributed:
+        s.sendall('Done\n')
     GPIO.output(outputPins.get('takePhoto'), False)
 
 

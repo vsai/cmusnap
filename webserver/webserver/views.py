@@ -3,7 +3,9 @@ from django.utils import simplejson as json
 from django.http.response import HttpResponse
 from django.core.serializers.json import DjangoJSONEncoder
 
-import socket, thread
+import photo_handler
+
+import socket, thread, string, time, string
 
 config = {}
 idsToIps = {}
@@ -35,6 +37,11 @@ def home(request):
   return render(request, "index.html", context)
 
 def searchForRasPis(request):
+
+  ### TEMP PLACED HERE
+  handleImages()
+  ###
+
   context = {}
   global config
   print "searching for rasPis here..."
@@ -61,7 +68,13 @@ def recv_server():
     global config, idsToIps
     while True:
         data = s.recv(SIZE) 
-        config, idsToIps = mapSRVRDataToDict(data)
+        print "here"
+        if data.startswith('Done'):
+          groupID = data[4:]
+          print "Attempting to pull %s pics from AWS" % groupID
+          thread.start_new_thread(pullFromAWS, (groupID,))
+        else:
+          config, idsToIps = mapSRVRDataToDict(data)
 
 
 def send_server():
@@ -71,6 +84,11 @@ def send_server():
 
 
 ##### HELPERS #####
+
+
+def handleImages():
+  photo_handler.pullFromAWS("1")
+
 
 def mapSRVRDataToDict(input_str):
   global config, idsToIps
