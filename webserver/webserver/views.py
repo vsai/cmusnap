@@ -37,11 +37,6 @@ def home(request):
   return render(request, "index.html", context)
 
 def searchForRasPis(request):
-
-  ### TEMP PLACED HERE
-  handleImages()
-  ###
-
   context = {}
   global config
   print "searching for rasPis here..."
@@ -86,8 +81,8 @@ def send_server():
 ##### HELPERS #####
 
 
-def handleImages():
-  photo_handler.pullFromAWS("1")
+#def handleImages():
+#  photo_handler.pullFromAWS("1")
 
 
 def mapSRVRDataToDict(input_str):
