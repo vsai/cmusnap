@@ -11,6 +11,7 @@ import flickrapi
 
 # other dependencies
 import string, time
+import collections.Counter
 
 # AWS Config setup
 LOCAL_PATH = os.getcwd() + "/static/temp"
@@ -18,6 +19,8 @@ AWS_ACCESS_KEY_ID = "AKIAJQO7AI5XW54UN5UQ"
 AWS_SECRET_ACCESS_KEY = "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"
 bucket_name = AWS_ACCESS_KEY_ID.lower() + "-vhd-549-bucket_demo"
 conn = boto.connect_s3(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+lastModified = "2014-04-30T09:59:24.000Z"
+
 
 # Flickr Setup
 flickr_api_key = "75f7e59201f9b055d876367e5bb3bb9b"
@@ -29,11 +32,35 @@ if not token: raw_input("Press ENTER after auth")
 flickr.get_token_part_two((token,frob))
 
 
+def pollForAWS():
+  global lastModified
+
+  print "got into this thing!"
+
+  bucket = conn.get_bucket(bucket_name)
+
+  blist = bucket.list()
+  #ordered = sorted(blist, key=lambda k: k.last_modified)
+  #ordered = ordered[::-1]
+
+  ordered = filter(lambda x: x.last_modified > lastModified, blist)
+
+  #refMap = map(lambda i: i.name, ordered)
+
+  solos = filter(lambda i:i.last_modified.startswith("2014"),ordered)
+  print "solos = ", solos
+
+  #groups = [ordered.remove(i) for i in solos]
+  groups = Counter(ordered) - Counter(solos)
+  print "groups = ", groups
+
+
+  # update lastModified
+  #lastModified = ordered[0].last_modified
+
+
 def pullFromAWS(groupID):
   print "waiting 3 seconds to pull"
-
-  groupID = "yolo"
-  print "overriding groupID to yolo"
 
   time.sleep(3) ## TODO: CHANGE THIS WHEN WE GET CONFIRMATION FROM PIS
   bucket = conn.get_bucket(bucket_name)

@@ -31,6 +31,11 @@ def connectToServer():
 thread.start_new_thread(connectToServer, ())
 
 def home(request):
+
+  ## PUTTING THIS HERE, BUT IT SHOULD BE WIRED TO SERVER
+  thread.start_new_thread(photo_handler.pollForAWS, ())
+
+
   global config
   context = {}
   context['RasPis'] = config
@@ -61,6 +66,7 @@ def config_handler(request):
 
 def recv_server():
     global config, idsToIps
+
     while True:
         data = s.recv(SIZE) 
         print "here"
@@ -79,11 +85,6 @@ def send_server():
     global config
     toSend = mapDictToSRVRData(config)
     s.sendall(toSend) 
-
-##### HELPERS #####
-
-#def handleImages():
-#  photo_handler.pullFromAWS("1")
 
 
 def mapSRVRDataToDict(input_str):
