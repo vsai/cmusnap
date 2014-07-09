@@ -15,8 +15,12 @@ import string, time
 
 # AWS Config setup
 LOCAL_PATH = os.getcwd() + "/static/temp"
-AWS_ACCESS_KEY_ID = "AKIAJQO7AI5XW54UN5UQ"
-AWS_SECRET_ACCESS_KEY = "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"
+AWS_ACCESS_KEY_ID = ""
+AWS_SECRET_ACCESS_KEY = ""
+if (AWS_ACCESS_KEY_ID == AWS_SECRET_ACCESS_KEY):
+    print "ERROR: INPUT AWS DETAILS"
+    exit()
+
 bucket_name = AWS_ACCESS_KEY_ID.lower() + "-vhd-549-bucket_demo"
 conn = boto.connect_s3(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 lastModified = None

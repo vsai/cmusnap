@@ -53,24 +53,10 @@ def stitch(urls):
 
         res_pxls[r + startR, c + startC] = pixels[i][r,c]
 
-
   res_img.save("res.jpg", "JPEG")
-
-
-
-
 
 stitch(["temp/yolo_2014-04-29_07-03-17.jpg",
   "temp/yolo_2014-04-29_07-03-17.jpg",
   "temp/yolo_2014-04-29_07-03-17.jpg",
   "temp/yolo_2014-04-29_07-03-17.jpg"])
-
-
-
-
-
-
-
-
-
 
